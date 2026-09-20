@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f6f8">
+<title>📦 电器位置查询 V2.2</title>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+header{background:#fff;padding:18px 16px 12px;position:sticky;top:0;z-index:10;border-bottom:1px solid #e5e5e5}
+h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;color:#777}.container{max-width:760px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:600;background:#f0f1f3;color:#222;min-height:48px}
+button.primary{background:#111;color:#fff}button.danger{background:#fff0f0;color:#c62828}button.small{min-height:40px;padding:9px 12px;font-size:14px}
+input{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
+label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bottom:10px}
+.item{border:1px solid #eee;border-radius:13px;padding:14px;margin:9px 0}.item-title{font-size:17px;font-weight:700}.meta{font-size:14px;color:#555;line-height:1.65;margin-top:6px}.location{font-weight:700}.empty{text-align:center;color:#888;padding:25px 10px}
+.result-card{text-align:center;padding:20px 15px}.result-icon{font-size:46px}.result-found{font-size:14px;color:#777}.result-name{font-size:26px;font-weight:800;margin:5px 0 15px}
+.location-box{background:#f1f3f5;border-radius:15px;padding:18px 12px;margin:14px 0}.location-label{font-size:13px;color:#777}.location-big{font-size:22px;font-weight:800;line-height:1.4}
+.result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.result-buttons button{width:100%}
+.scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
+#reader{width:100%;overflow:hidden;border-radius:13px}.location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
+</style>
+</head>
+<body>
+<header><h1>📦 电器位置查询</h1><div class="sub">V2.2 · iPhone Chrome</div></header>
+<div class="container">
+<div id="home" class="card"><div class="grid">
+<button class="primary" onclick="startScanner()">📷 扫描商品</button>
+<button onclick="manualBarcode()">⌨️ 输入条码</button>
+<button onclick="showForm()">➕ 新增商品</button>
+<button onclick="showSearch()">🔍 搜索商品</button>
+<button onclick="showAll()">📋 全部商品</button>
+<button onclick="manageLocations()">📍 位置管理</button>
+</div></div>
+<div id="content"></div>
+</div>
+<script>
+const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22";
+let items=JSON.parse(localStorage.getItem(IK)||"[]"),locations=JSON.parse(localStorage.getItem(LK)||"[]"),scanner=null,scanning=false;
+const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+function save(){localStorage.setItem(IK,JSON.stringify(items));localStorage.setItem(LK,JSON.stringify(locations))}
+function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
+function back(){stopScanner();content("")}
+function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||x.location||"未设置")}
+function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
+
+function form(x=null,code=""){
+ stopScanner();let e=!!x,a=x?.area||"",s=x?.shelf||x?.location||"";
+ content(`<div class="card"><button class="small back" onclick="${e?`showItem('${esc(x.id)}')`:"back()"}">← 返回</button><h2>${e?"编辑商品":"新增商品"}</h2>
+ <label>条码 / QR Code</label><input id="code" value="${esc(x?.code||code)}" placeholder="可扫码或手动输入">
+ <label>商品名称 *</label><input id="name" value="${esc(x?.name||"")}" placeholder="例如 Dyson V15">
+ <label>品牌</label><input id="brand" value="${esc(x?.brand||"")}" placeholder="例如 Dyson">
+ <label>型号</label><input id="model" value="${esc(x?.model||"")}" placeholder="例如 V15">
+ <label>颜色</label><input id="color" value="${esc(x?.color||"")}" placeholder="例如 Gold / Black / White">
+ <label>区域</label><input id="area" list="areas" value="${esc(a)}" placeholder="例如 Basement / Garage / 客厅">
+ <label>货架 / 存放位置</label><input id="shelf" value="${esc(s)}" placeholder="例如 左边货架 / 第一层货架 / 电视柜">
+ <datalist id="areas">${[...new Set(locations.map(x=>x.area).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join("")}</datalist>
+ <button class="primary" style="width:100%;margin-top:16px" onclick="saveItem('${e?esc(x.id):""}')">💾 保存</button>
+ ${e?`<button class="danger" style="width:100%;margin-top:9px" onclick="del('${esc(x.id)}')">🗑 删除商品</button>`:""}</div>`);
+}
+function saveItem(id){
+ let code=document.getElementById("code").value.trim(),name=document.getElementById("name").value.trim();
+ if(!name){alert("请输入商品名称");return}
+ let d=code&&items.find(x=>x.code===code&&x.id!==id);if(d){alert("这个条码已经存在："+d.name);showItem(d.id);return}
+ let x={id:id||Date.now().toString(),code,name,brand:document.getElementById("brand").value.trim(),model:document.getElementById("model").value.trim(),color:document.getElementById("color").value.trim(),area:document.getElementById("area").value.trim(),shelf:document.getElementById("shelf").value.trim(),updated:new Date().toLocaleString()};
+ if(id){let i=items.findIndex(q=>q.id===id);if(i>=0)items[i]=x}else items.push(x);save();
+ if(x.area||x.shelf){if(!locations.some(q=>q.area===x.area&&q.shelf===x.shelf)){locations.push({id:Date.now().toString(),area:x.area,shelf:x.shelf});save()}}
+ showItem(x.id)
+}
+function del(id){let x=items.find(q=>q.id===id);if(x&&confirm("确定删除「"+x.name+"」吗？")){items=items.filter(q=>q.id!==id);save();showAll()}}
+function showItem(id){
+ stopScanner();let x=items.find(q=>q.id===id);if(!x)return showAll();
+ content(`<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">${esc(x.name)}</div>
+ <div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 ${esc(loc(x))}</div></div>
+ ${x.color?`<div>🎨 颜色：<b>${esc(x.color)}</b></div>`:""}<div class="meta">${x.brand?`<div><b>品牌：</b>${esc(x.brand)}</div>`:""}${x.model?`<div><b>型号：</b>${esc(x.model)}</div>`:""}${x.code?`<div><b>条码：</b>${esc(x.code)}</div>`:""}</div>
+ <div class="result-buttons"><button class="primary" onclick="form(items.find(q=>q.id==='${esc(x.id)}'))">✏️ 编辑</button><button onclick="showSearch()">🔍 搜索</button></div>
+ <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 继续扫描</button></div>`)
+}
+function scanResult(x){showItem(x.id)}
+function newResult(code){
+ content(`<div class="card result-card"><div class="result-icon">🆕</div><div class="result-found">新商品</div><div class="result-name" style="font-size:22px">尚未登记</div>
+ <div class="location-box"><div class="location-label">扫描到的条码</div><div style="font-size:18px;font-weight:700;word-break:break-all">${esc(code)}</div></div>
+ <button class="primary" style="width:100%" onclick="form(null,'${esc(code)}')">➕ 登记这个商品</button>
+ <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 重新扫描</button><button style="width:100%;margin-top:9px" onclick="back()">🏠 返回首页</button></div>`)
+}
+function handle(code){stopScanner();code=String(code||"").trim();if(!code)return;let x=byCode(code);x?scanResult(x):newResult(code)}
+async function startScanner(){
+ stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 取消扫描</button><h2>📷 扫描商品</h2>
+ <div class="scan-tip">请允许 Chrome 使用摄像头。<br><br>将商品条码放到扫描框中央。<br>已登记商品：扫描后直接显示存放位置。<br>新商品：扫描后进入登记。</div><div id="reader"></div><div id="status" class="status">正在启动摄像头…</div></div>`);
+ if(!window.Html5Qrcode){document.getElementById("status").textContent="扫码组件加载失败，请检查网络连接。";return}
+ let st=document.getElementById("status");scanner=new Html5Qrcode("reader");
+ try{let cs=await Html5Qrcode.getCameras();if(!cs?.length){st.textContent="没有找到可用摄像头。";return}
+ let c=cs.find(q=>/back|rear|environment|后置/i.test(q.label||""))||cs[0];scanning=true;
+ await scanner.start(c.id,{fps:10,qrbox:{width:280,height:180},aspectRatio:1.777},t=>{if(scanning){scanning=false;handle(t)}},()=>{});
+ st.textContent="正在扫描，请将条码放入框内…"}catch(e){console.error(e);st.textContent="无法启动摄像头。请确认 Chrome 已允许使用摄像头，并使用 HTTPS 页面。"}
+}
+async function stopScanner(){scanning=false;if(scanner){try{if(scanner.getState&&scanner.getState()===2)await scanner.stop()}catch(e){}try{scanner.clear()}catch(e){}scanner=null}}
+function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
+
+function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="名称、品牌、型号、条码、颜色、位置…" oninput="doSearch()"><div id="results" style="margin-top:10px"></div></div>`);doSearch();setTimeout(()=>document.getElementById("search")?.focus(),100)}
+function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;let a=q?items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location].join(" ").toLowerCase().includes(q)):items;render(a,r)}
+function showAll(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>${items.length}</strong></div><div id="all"></div></div>`);render(items,document.getElementById("all"))}
+function render(a,r){if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}r.innerHTML=a.map(x=>`<div class="item" onclick="showItem('${esc(x.id)}')"><div class="item-title">${esc(x.name)}</div><div class="meta">${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}<br><span class="location">📍 ${esc(loc(x))}</span>${x.code?`<br>🔢 ${esc(x.code)}`:""}</div></div>`).join("")}
+
+function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">建立经常使用的位置。新增商品时可以直接使用。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>`);renderLocations()}
+function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
+function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
+function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
+</script>
+</body>
+</html>
