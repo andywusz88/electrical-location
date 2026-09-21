@@ -34,6 +34,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 <button onclick="showSearch()">🔍 搜索商品</button>
 <button onclick="showAll()">📋 全部商品</button>
 <button onclick="manageLocations()">📍 位置管理</button>
+<button class="danger" onclick="clearAllData()">🗑 清除所有资料</button>
 </div></div>
 <div id="content"></div>
 </div>
@@ -83,10 +84,15 @@ function showItem(id){
  <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 继续扫描</button></div>`)
 }
 function scanResult(x){showItem(x.id)}
+function registerNewProduct(code){
+ stopScanner();
+ try{form(null,code||"")}catch(e){console.error(e);alert("打开商品登记页面失败，请刷新页面后再试。")}
+}
+
 function newResult(code){
  content(`<div class="card result-card"><div class="result-icon">🆕</div><div class="result-found">新商品</div><div class="result-name" style="font-size:22px">尚未登记</div>
  <div class="location-box"><div class="location-label">扫描到的条码</div><div style="font-size:18px;font-weight:700;word-break:break-all">${esc(code)}</div></div>
- <button class="primary" style="width:100%" onclick="form(null,'${esc(code)}')">➕ 登记这个商品</button>
+ <button type="button" class="primary" style="width:100%" onclick="registerNewProduct('${esc(code)}')">➕ 登记这个商品</button>
  <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 重新扫描</button><button style="width:100%;margin-top:9px" onclick="back()">🏠 返回首页</button></div>`)
 }
 function handle(code){stopScanner();code=String(code||"").trim();if(!code)return;let x=byCode(code);x?scanResult(x):newResult(code)}
@@ -107,6 +113,18 @@ function showSearch(){stopScanner();content(`<div class="card"><button class="sm
 function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;let a=q?items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location].join(" ").toLowerCase().includes(q)):items;render(a,r)}
 function showAll(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>${items.length}</strong></div><div id="all"></div></div>`);render(items,document.getElementById("all"))}
 function render(a,r){if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}r.innerHTML=a.map(x=>`<div class="item" onclick="showItem('${esc(x.id)}')"><div class="item-title">${esc(x.name)}</div><div class="meta">${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}<br><span class="location">📍 ${esc(loc(x))}</span>${x.code?`<br>🔢 ${esc(x.code)}`:""}</div></div>`).join("")}
+
+function clearAllData(){
+ const password=prompt("请输入清除资料密码：");
+ if(password===null)return;
+ if(password!=="888"){alert("密码错误，资料未清除。");return}
+ if(!confirm("确定要清除所有商品和位置资料吗？此操作无法撤销！"))return;
+ items=[];locations=[];
+ localStorage.removeItem(IK);
+ localStorage.removeItem(LK);
+ alert("所有资料已清除。");
+ back();
+}
 
 function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">建立经常使用的位置。新增商品时可以直接使用。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>`);renderLocations()}
 function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
