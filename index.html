@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V4.2｜长方形视觉扫码框</title>
+<title>📦 电器位置查询 V4.3｜大类小类商品种类</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
@@ -22,7 +22,6 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
 #videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000;position:relative}
 #previewVideo{width:100%;display:block}
-/* =========长方形扫码视觉遮罩========= */
 .scan‑overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
 .scan‑cutout{position:absolute;left:5%;right:5%;top:38%;bottom:38%;border:2px solid #42a5f5;border-radius:8px}
 .scan‑overlay::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:rgba(0,0,0,0.55)}
@@ -33,6 +32,8 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
 .stock-tag{display:inline-block;margin:2px 0;}
 .update-time{font-size:12px;color:#888;margin-top:4px;}
+.cat-item{border:1px solid #ddd;padding:12px;border-radius:10px;margin:8px 0;}
+.cat-sub{margin-left:14px;margin-top:6px;color:#444}
 @media (max-width:400px){
   .item-title{font-size:16px}
   .meta{font-size:13px}
@@ -41,7 +42,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V4.2｜长方形扫码视觉框｜库存数量</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V4.3｜商品大类小类分类</div></header>
 <div class="container">
 <div id="home" class="card"><div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
@@ -49,37 +50,130 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 <button type="button" onclick="openNewProduct()">➕ 新增商品</button>
 <button onclick="showSearch()">🔍 搜索商品</button>
 <button onclick="showAll()">📋 全部商品</button>
+<button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
 <button class="danger" onclick="clearAllData()">🗑 清除所有资料</button>
 </div></div>
 <div id="content"></div>
 </div>
 <script>
-const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22";
-let items=JSON.parse(localStorage.getItem(IK)||"[]"),locations=JSON.parse(localStorage.getItem(LK)||"[]");
+const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22",CK="myElectricalCategory_v43";
+let items=JSON.parse(localStorage.getItem(IK)||"[]");
+let locations=JSON.parse(localStorage.getItem(LK)||"[]");
+//分类数据：[{id,name:"大类名",subs:[{id,name:"小类名"}]}]
+let categories=JSON.parse(localStorage.getItem(CK)||"[]");
 let mediaStream=null;
 let codeReader=null;
 let scanning=false;
 
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-function save(){localStorage.setItem(IK,JSON.stringify(items));localStorage.setItem(LK,JSON.stringify(locations))}
+function save(){
+    localStorage.setItem(IK,JSON.stringify(items));
+    localStorage.setItem(LK,JSON.stringify(locations));
+    localStorage.setItem(CK,JSON.stringify(categories));
+}
 function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
 function back(){stopScanner();content("")}
 function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||x.location||"未设置")}
 function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
 function openNewProduct(){try{form(null,"")}catch(e){console.error(e);alert("打开新增商品页面失败，请刷新页面后再试。")}}
 
+//====分类管理====
+function manageCategory(){
+    stopScanner();
+    let html=`<div class="card">
+    <button class="small back" onclick="back()">← 返回</button>
+    <h2>🏷商品种类管理</h2>
+    <label>新增大类</label>
+    <input id="catMainName" placeholder="例如：小家电">
+    <button class="primary" style="width:100%;margin-top:10px" onclick="addMainCat()">➕ 添加大类</button>
+    <div style="margin-top:16px"><h4>已有分类（大类‑小类）</h4><div id="catList"></div></div>
+    </div>`;
+    content(html);
+    renderCategoryList();
+}
+function addMainCat(){
+    let name=document.getElementById("catMainName").value.trim();
+    if(!name){alert("请输入大类名称");return;}
+    categories.push({id:Date.now().toString(),name:name,subs:[]});
+    save();
+    document.getElementById("catMainName").value="";
+    renderCategoryList();
+}
+function addSubCat(mainId){
+    let subName=prompt("输入小类名称：");
+    if(!subName||!subName.trim())return;
+    let main=categories.find(i=>i.id===mainId);
+    if(!main)return;
+    main.subs.push({id:Date.now().toString(),name:subName.trim()});
+    save();
+    renderCategoryList();
+}
+function delMainCat(mainId){
+    if(!confirm("确定删除该大类，下属所有小类一并删除？"))return;
+    categories=categories.filter(i=>i.id!==mainId);
+    save();renderCategoryList();
+}
+function delSubCat(mainId,subId){
+    if(!confirm("确定删除此小类？"))return;
+    let main=categories.find(i=>i.id===mainId);
+    if(!main)return;
+    main.subs=main.subs.filter(s=>s.id!==subId);
+    save();renderCategoryList();
+}
+function renderCategoryList(){
+    let wrap=document.getElementById("catList");
+    if(!wrap)return;
+    if(!categories.length){wrap.innerHTML="<div class='empty'>暂无分类，请先添加大类</div>";return;}
+    let out="";
+    for(let m of categories){
+        out+=`<div class="cat-item">
+        <div><b>📦 ${esc(m.name)}</b>
+        <button class="small" onclick="addSubCat('${esc(m.id)}')">+增加小类</button>
+        <button class="small danger" onclick="delMainCat('${esc(m.id)}')">删除大类</button>
+        </div>`;
+        for(let s of m.subs){
+            out+=`<div class="cat-sub">‑ ${esc(s.name)}
+            <button class="small danger" onclick="delSubCat('${esc(m.id)}','${esc(s.id)}')">删除</button>
+            </div>`;
+        }
+        out+="</div>";
+    }
+    wrap.innerHTML=out;
+}
+
+//====商品表单====
 function form(x=null,code=""){
  stopScanner();let e=!!x,a=x?.area||"",s=x?.shelf||x?.location||"";
+ //原有商品保存的分类 mainCatId subCatId
+ let selMainId=x?.mainCatId||"";
+ let selSubId=x?.subCatId||"";
+
  content(`<div class="card"><button class="small back" onclick="${e?`showItem('${esc(x.id)}')`:"back()"}">← 返回</button><h2>${e?"编辑商品":"新增商品"}</h2>
  <label>条码 / QR Code</label><input id="code" value="${esc(x?.code||code)}" placeholder="可扫码或手动输入">
  <label>商品名称 *</label><input id="name" value="${esc(x?.name||"")}" placeholder="例如 Dyson V15">
  <label>品牌</label><input id="brand" value="${esc(x?.brand||"")}" placeholder="例如 Dyson">
  <label>型号</label><input id="model" value="${esc(x?.model||"")}" placeholder="例如 V15">
  <label>颜色</label><input id="color" value="${esc(x?.color||"")}" placeholder="例如 Gold / Black / White">
-  <label>库存状态</label><select id="stock" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff"><option value="yes" ${x?.stock!=="no"?"selected":""}>✅ 有库存</option><option value="no" ${x?.stock==="no"?"selected":""}>❌ 无库存</option></select>
+ <label>库存状态</label>
+ <select id="stock" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
+ <option value="yes" ${x?.stock!=="no"?"selected":""}>✅ 有库存</option>
+ <option value="no" ${x?.stock==="no"?"selected":""}>❌ 无库存</option>
+ </select>
  <label>库存数量</label>
  <input id="stockQty" value="${esc(x?.stockQty??"")}" placeholder="填写数字，例如 5，可不填">
+
+ <label>商品大类</label>
+ <select id="mainCatSel" onchange="refreshSubSelect()" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
+ <option value="">不选择大类</option>
+ ${categories.map(m=>`<option value="${esc(m.id)}" ${m.id===selMainId?"selected":""}>${esc(m.name)}</option>`).join("")}
+ </select>
+
+ <label>商品小类</label>
+ <select id="subCatSel" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
+ <option value="">先选择大类</option>
+ </select>
+
  <label>区域</label>
  <select id="area" onchange="updateShelfOptions()" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
   <option value="">请选择区域</option>
@@ -91,7 +185,34 @@ function form(x=null,code=""){
  ${e?`<button class="danger" style="width:100%;margin-top:9px" onclick="del('${esc(x.id)}')">🗑 删除商品</button>`:""}</div>`);
  let shelfEl=document.getElementById("shelf");if(shelfEl)shelfEl.dataset.current=JSON.stringify(s);
  updateShelfOptions();
+ //表单打开之后填充小类下拉
+ setTimeout(()=>{
+    (document.getElementById("mainCatSel")).value=selMainId;
+    refreshSubSelect(selSubId);
+ },20);
 }
+//大类改变，联动刷新小类下拉
+function refreshSubSelect(presetSubId=""){
+    let mainSel=document.getElementById("mainCatSel");
+    let subSel=document.getElementById("subCatSel");
+    if(!mainSel||!subSel)return;
+    let mainId=mainSel.value;
+    if(!mainId){
+        subSel.innerHTML="<option value="">先选择大类</option>";
+        return;
+    }
+    let mainObj=categories.find(m=>m.id===mainId);
+    if(!mainObj||!mainObj.subs.length){
+        subSel.innerHTML="<option value="">该大类暂无小类</option>";
+        return;
+    }
+    let html="<option value="">--请选择小类--</option>";
+    for(let s of mainObj.subs){
+        html+=`<option value="${esc(s.id)}" ${s.id===presetSubId?"selected":""}>${esc(s.name)}</option>`;
+    }
+    subSel.innerHTML=html;
+}
+
 function updateShelfOptions(){
  let areaEl=document.getElementById("area"),shelfEl=document.getElementById("shelf");
  if(!areaEl||!shelfEl)return;
@@ -105,6 +226,10 @@ function saveItem(id){
  let code=document.getElementById("code").value.trim(),name=document.getElementById("name").value.trim();
  if(!name){alert("请输入商品名称");return}
  let d=code&&items.find(x=>x.code===code&&x.id!==id);if(d){alert("这个条码已经存在："+d.name);showItem(d.id);return}
+
+ let mainCatId=document.getElementById("mainCatSel").value;
+ let subCatId=document.getElementById("subCatSel").value;
+
  let x={
     id:id||Date.now().toString(),
     code,
@@ -114,6 +239,8 @@ function saveItem(id){
     color:document.getElementById("color").value.trim(),
     stock:document.getElementById("stock").value,
     stockQty:document.getElementById("stockQty").value.trim(),
+    mainCatId:mainCatId||"",
+    subCatId:subCatId||"",
     area:document.getElementById("area").value.trim(),
     shelf:document.getElementById("shelf").value.trim(),
     updated:new Date().toLocaleString()
@@ -128,13 +255,26 @@ function openEditById(itemId){
   const item = items.find(q=>q.id===itemId);
   if(item){form(item);}
 }
+//获取商品显示用分类文本
+function getCatText(item){
+    if(!item.mainCatId) return "未分类";
+    let m=categories.find(c=>c.id===item.mainCatId);
+    if(!m) return "未分类";
+    if(!item.subCatId) return esc(m.name);
+    let s=m.subs.find(su=>su.id===item.subCatId);
+    if(!s) return esc(m.name);
+    return `${esc(m.name)} / ${esc(s.name)}`;
+}
+
 function showItem(id){
  stopScanner();let x=items.find(q=>q.id===id);if(!x)return showAll();
  const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
+ const catTxt=getCatText(x);
  content(`<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">${esc(x.name)}</div>
  <div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 ${esc(loc(x))}</div></div>
  <div style="margin:10px 0">库存状态：<b>${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</b></div>
  <div style="margin:6px 0">库存数量：<b>${qtyText}</b></div>
+ <div style="margin:6px 0">商品种类：<b>${catTxt}</b></div>
  ${x.color?`<div>🎨 颜色：<b>${esc(x.color)}</b></div>`:""}
  <div class="meta">
  ${x.brand?`<div><b>品牌：</b>${esc(x.brand)}</div>`:""}
@@ -164,10 +304,9 @@ function handleScannedCode(code){
  existing ? scanResult(existing) : newResult(code);
 }
 
-// ==========ZXing‑JS扫码核心｜增加长方形视觉遮罩层==========
+// ==========ZXing‑JS扫码核心｜长方形视觉遮罩==========
 async function startScanner(){
  stopScanner();
- // videoWrap内部插入遮罩overlay，pointer‑events:none不拦截点击
  content(`<div class="card">
  <button class="small back" onclick="back()">← 取消扫描</button>
  <h2>📷 扫描商品</h2>
@@ -227,25 +366,37 @@ async function stopScanner(){
 }
 
 function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
-function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="可搜索：名称、品牌、型号、条码、颜色、位置、库存数量…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
-function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return}let a=items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location,String(x.stockQty||"")].join(" ").toLowerCase().includes(q));render(a,r)}
+function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="可搜索：名称、品牌、型号、条码、颜色、位置、库存、分类…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
+function doSearch(){
+    let q=(document.getElementById("search")?.value||"").trim().toLowerCase();
+    let r=document.getElementById("results");
+    if(!r)return;
+    if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return;}
+    let a=items.filter(x=>{
+        let catText=getCatText(x).toLowerCase();
+        return [x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,String(x.stockQty||""),catText].join(" ").toLowerCase().includes(q);
+    });
+    render(a,r);
+}
 function showAll(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>${items.length}</strong></div><div id="all"></div></div>`);render(items,document.getElementById("all"))}
 
 function render(a,r){
  if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
  r.innerHTML=a.map(x=>{
   const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
+  const catTxt=getCatText(x);
   return `
  <div class="item" onclick="showItem('${esc(x.id)}')">
   <div class="item-title">${esc(x.name)}</div>
   <div class="meta">
    ${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}
+   <br>🏷种类：${catTxt}
    <br>
-   <span class="stock‑tag">${x.stock==="no"?"❌ 无库存":"✅ 有库存"}｜数量：${qtyText}</span>
+   <span class="stock-tag">${x.stock==="no"?"❌ 无库存":"✅ 有库存"}｜数量：${qtyText}</span>
    <br>
    <span class="location">📍 ${esc(loc(x))}</span>
    ${x.code?`<br>🔢 ${esc(x.code)}`:""}
-   <div class="update‑time">🕒最后修改：${esc(x.updated||"无记录")}</div>
+   <div class="update-time">🕒最后修改：${esc(x.updated||"无记录")}</div>
   </div>
  </div>`;
  }).join("")
@@ -255,15 +406,16 @@ function clearAllData(){
  const password=prompt("请输入清除资料密码：");
  if(password===null)return;
  if(password!=="888"){alert("密码错误，资料未清除。");return}
- if(!confirm("确定要清除所有商品和位置资料吗？此操作无法撤销！"))return;
- items=[];locations=[];
+ if(!confirm("确定要清除所有商品、位置、分类资料吗？此操作无法撤销！"))return;
+ items=[];locations=[];categories=[];
  localStorage.removeItem(IK);
  localStorage.removeItem(LK);
+ localStorage.removeItem(CK);
  alert("所有资料已清除。");
  back();
 }
-function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font‑size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin‑top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin‑top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin‑top:14px"></div></div>`);renderLocations()}
-function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location‑list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
+function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>`);renderLocations()}
+function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
 function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
 function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
 </script>
