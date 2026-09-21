@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V4.3‑fix｜大类小类商品种类 修复按钮点击</title>
+<title>📦 电器位置查询 V4.3‑final｜修复onclick全局函数</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -40,7 +40,6 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
 #videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000;position:relative}
 #previewVideo{width:100%;display:block}
-/* 全部使用标准英文减号 */
 .scan-overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
 .scan-cutout{position:absolute;left:5%;right:5%;top:38%;bottom:38%;border:2px solid #42a5f5;border-radius:8px}
 .scan-overlay::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:rgba(0,0,0,0.55)}
@@ -62,7 +61,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V4.3‑fix｜修复按钮点击｜大类小类分类</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V4.3‑final｜修复全局onclick</div></header>
 <div class="container">
 <div id="home" class="card">
  <div class="grid">
@@ -82,7 +81,6 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22",CK="myElectricalCategory_v43";
 let items=JSON.parse(localStorage.getItem(IK)||"[]");
 let locations=JSON.parse(localStorage.getItem(LK)||"[]");
-//分类数据：[{id,name:"大类名",subs:[{id,name:"小类名"}]}]
 let categories=JSON.parse(localStorage.getItem(CK)||"[]");
 let mediaStream=null;
 let codeReader=null;
@@ -100,7 +98,6 @@ function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||
 function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
 function openNewProduct(){try{form(null,"")}catch(e){console.error(e);alert("打开新增商品页面失败，请刷新页面后再试。")}}
 
-//====分类管理====
 function manageCategory(){
     stopScanner();
     let html=`<div class="card">
@@ -155,7 +152,7 @@ function renderCategoryList(){
         <button class="small danger" onclick="delMainCat('${esc(m.id)}')">删除大类</button>
         </div>`;
         for(let s of m.subs){
-            out+=`<div class="cat-sub">‑ ${esc(s.name)}
+            out+=`<div class="cat-sub">- ${esc(s.name)}
             <button class="small danger" onclick="delSubCat('${esc(m.id)}','${esc(s.id)}')">删除</button>
             </div>`;
         }
@@ -164,10 +161,8 @@ function renderCategoryList(){
     wrap.innerHTML=out;
 }
 
-//====商品表单====
 function form(x=null,code=""){
  stopScanner();let e=!!x,a=x?.area||"",s=x?.shelf||x?.location||"";
- //原有商品保存的分类 mainCatId subCatId
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
@@ -207,13 +202,11 @@ function form(x=null,code=""){
  ${e?`<button class="danger" style="width:100%;margin-top:9px" onclick="del('${esc(x.id)}')">🗑 删除商品</button>`:""}</div>`);
  let shelfEl=document.getElementById("shelf");if(shelfEl)shelfEl.dataset.current=JSON.stringify(s);
  updateShelfOptions();
- //表单打开之后填充小类下拉
  setTimeout(()=>{
     document.getElementById("mainCatSel").value=selMainId;
     refreshSubSelect(selSubId);
  },20);
 }
-//大类改变，联动刷新小类下拉
 function refreshSubSelect(presetSubId=""){
     let mainSel=document.getElementById("mainCatSel");
     let subSel=document.getElementById("subCatSel");
@@ -277,7 +270,6 @@ function openEditById(itemId){
   const item = items.find(q=>q.id===itemId);
   if(item){form(item);}
 }
-//获取商品显示用分类文本
 function getCatText(item){
     if(!item.mainCatId) return "未分类";
     let m=categories.find(c=>c.id===item.mainCatId);
@@ -326,7 +318,6 @@ function handleScannedCode(code){
  existing ? scanResult(existing) : newResult(code);
 }
 
-// ==========ZXing‑JS扫码核心｜长方形视觉遮罩==========
 async function startScanner(){
  stopScanner();
  content(`<div class="card">
@@ -440,6 +431,32 @@ function manageLocations(){stopScanner();content(`<div class="card"><button clas
 function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
 function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
 function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
+
+
+// =========关键修复：把onclick用到的全部函数挂载window全局对象！！========
+window.startScanner=startScanner;
+window.manualBarcode=manualBarcode;
+window.openNewProduct=openNewProduct;
+window.showSearch=showSearch;
+window.showAll=showAll;
+window.manageCategory=manageCategory;
+window.manageLocations=manageLocations;
+window.clearAllData=clearAllData;
+window.back=back;
+window.addMainCat=addMainCat;
+window.addSubCat=addSubCat;
+window.delMainCat=delMainCat;
+window.delSubCat=delSubCat;
+window.refreshSubSelect=refreshSubSelect;
+window.saveItem=saveItem;
+window.del=del;
+window.openEditById=openEditById;
+window.showItem=showItem;
+window.registerNewProduct=registerNewProduct;
+window.newResult=newResult;
+window.doSearch=doSearch;
+window.addLocation=addLocation;
+window.removeLocation=removeLocation;
 </script>
 </body>
 </html>
