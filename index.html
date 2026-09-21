@@ -4,32 +4,52 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V4.3｜大类小类商品种类</title>
+<title>📦 电器位置查询 V4.3‑fix｜大类小类商品种类 修复按钮点击</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
 header{background:#fff;padding:18px 16px 12px;position:sticky;top:0;z-index:10;border-bottom:1px solid #e5e5e5}
-h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;color:#777}.container{max-width:760px;margin:auto;padding:14px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{font-size:13px;color:#777}
+.container{max-width:760px;margin:auto;padding:14px}
 .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:600;background:#f0f1f3;color:#222;min-height:48px}
-button.primary{background:#111;color:#fff}button.danger{background:#fff0f0;color:#c62828}button.small{min-height:40px;padding:9px 12px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:600;background:#f0f1f3;color:#222;min-height:48px}
+button.primary{background:#111;color:#fff}
+button.danger{background:#fff0f0;color:#c62828}
+button.small{min-height:40px;padding:9px 12px;font-size:14px}
 input,select{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
-label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bottom:10px}
-.item{border:1px solid #eee;border-radius:13px;padding:14px;margin:9px 0}.item-title{font-size:17px;font-weight:700}.meta{font-size:14px;color:#555;line-height:1.65;margin-top:6px}.location{font-weight:700}.empty{text-align:center;color:#888;padding:25px 10px}
-.result-card{text-align:center;padding:20px 15px}.result-icon{font-size:46px}.result-found{font-size:14px;color:#777}.result-name{font-size:26px;font-weight:800;margin:5px 0 15px}
-.location-box{background:#f1f3f5;border-radius:15px;padding:18px 12px;margin:14px 0}.location-label{font-size:13px;color:#777}.location-big{font-size:22px;font-weight:800;line-height:1.4}
-.result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.result-buttons button{width:100%}
-.scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
+label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
+.back{margin-bottom:10px}
+.item{border:1px solid #eee;border-radius:13px;padding:14px;margin:9px 0}
+.item-title{font-size:17px;font-weight:700}
+.meta{font-size:14px;color:#555;line-height:1.65;margin-top:6px}
+.location{font-weight:700}
+.empty{text-align:center;color:#888;padding:25px 10px}
+.result-card{text-align:center;padding:20px 15px}
+.result-icon{font-size:46px}
+.result-found{font-size:14px;color:#777}
+.result-name{font-size:26px;font-weight:800;margin:5px 0 15px}
+.location-box{background:#f1f3f5;border-radius:15px;padding:18px 12px;margin:14px 0}
+.location-label{font-size:13px;color:#777}
+.location-big{font-size:22px;font-weight:800;line-height:1.4}
+.result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.result-buttons button{width:100%}
+.scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}
+.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
 #videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000;position:relative}
 #previewVideo{width:100%;display:block}
-.scan‑overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
-.scan‑cutout{position:absolute;left:5%;right:5%;top:38%;bottom:38%;border:2px solid #42a5f5;border-radius:8px}
-.scan‑overlay::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:rgba(0,0,0,0.55)}
-.scan‑overlay::after{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;background:rgba(0,0,0,0.55)}
-.scan‑overlay .left{position:absolute;left:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
-.scan‑overlay .right{position:absolute;right:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
+/* 全部使用标准英文减号 */
+.scan-overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
+.scan-cutout{position:absolute;left:5%;right:5%;top:38%;bottom:38%;border:2px solid #42a5f5;border-radius:8px}
+.scan-overlay::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:rgba(0,0,0,0.55)}
+.scan-overlay::after{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;background:rgba(0,0,0,0.55)}
+.scan-overlay .left{position:absolute;left:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
+.scan-overlay .right{position:absolute;right:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
 .location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
+.stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}
+.stat strong{font-size:18px}
 .stock-tag{display:inline-block;margin:2px 0;}
 .update-time{font-size:12px;color:#888;margin-top:4px;}
 .cat-item{border:1px solid #ddd;padding:12px;border-radius:10px;margin:8px 0;}
@@ -42,9 +62,10 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V4.3｜商品大类小类分类</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V4.3‑fix｜修复按钮点击｜大类小类分类</div></header>
 <div class="container">
-<div id="home" class="card"><div class="grid">
+<div id="home" class="card">
+ <div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
 <button onclick="manualBarcode()">⌨️ 输入条码</button>
 <button type="button" onclick="openNewProduct()">➕ 新增商品</button>
@@ -53,7 +74,8 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 <button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
 <button class="danger" onclick="clearAllData()">🗑 清除所有资料</button>
-</div></div>
+</div>
+</div>
 <div id="content"></div>
 </div>
 <script>
@@ -187,7 +209,7 @@ function form(x=null,code=""){
  updateShelfOptions();
  //表单打开之后填充小类下拉
  setTimeout(()=>{
-    (document.getElementById("mainCatSel")).value=selMainId;
+    document.getElementById("mainCatSel").value=selMainId;
     refreshSubSelect(selSubId);
  },20);
 }
@@ -310,13 +332,13 @@ async function startScanner(){
  content(`<div class="card">
  <button class="small back" onclick="back()">← 取消扫描</button>
  <h2>📷 扫描商品</h2>
- <div class="scan‑tip">✅允许相机权限<br>📌把<strong>横向一维条码</strong>放进中间长方形框内<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div>
+ <div class="scan-tip">✅允许相机权限<br>📌把<strong>横向一维条码</strong>放进中间长方形框内<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div>
  <div id="videoWrap">
   <video id="previewVideo" playsinline muted autoplay></video>
-  <div class="scan‑overlay">
+  <div class="scan-overlay">
     <div class="left"></div>
     <div class="right"></div>
-    <div class="scan‑cutout"></div>
+    <div class="scan-cutout"></div>
   </div>
  </div>
  <div id="scanStatus" class="status">正在启动后置摄像头…</div>
