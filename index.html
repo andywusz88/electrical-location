@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V2.7 iPhone后置摄像头修复</title>
+<title>📦 电器位置查询 V2.8 摄像头手动选择</title>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
@@ -13,7 +13,7 @@ h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;color:#777}.container{max-w
 .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:600;background:#f0f1f3;color:#222;min-height:48px}
 button.primary{background:#111;color:#fff}button.danger{background:#fff0f0;color:#c62828}button.small{min-height:40px;padding:9px 12px;font-size:14px}
-input{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
+input,select{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
 label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bottom:10px}
 .item{border:1px solid #eee;border-radius:13px;padding:14px;margin:9px 0}.item-title{font-size:17px;font-weight:700}.meta{font-size:14px;color:#555;line-height:1.65;margin-top:6px}.location{font-weight:700}.empty{text-align:center;color:#888;padding:25px 10px}
 .result-card{text-align:center;padding:20px 15px}.result-icon{font-size:46px}.result-found{font-size:14px;color:#777}.result-name{font-size:26px;font-weight:800;margin:5px 0 15px}
@@ -24,6 +24,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
 .stock-tag{display:inline-block;margin:2px 0;}
 .update-time{font-size:12px;color:#888;margin-top:4px;}
+.camera-select-wrap{margin:8px 0;}
 @media (max-width:400px){
   .item-title{font-size:16px}
   .meta{font-size:13px}
@@ -32,7 +33,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V2.7 · iPhone后置摄像头兼容</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V2.8 · 摄像头手动选择切换</div></header>
 <div class="container">
 <div id="home" class="card"><div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
@@ -48,6 +49,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 <script>
 const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22";
 let items=JSON.parse(localStorage.getItem(IK)||"[]"),locations=JSON.parse(localStorage.getItem(LK)||"[]"),scanner=null,scanning=false;
+let cameraDeviceList=[]; //保存全部摄像头设备列表
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 function save(){localStorage.setItem(IK,JSON.stringify(items));localStorage.setItem(LK,JSON.stringify(locations))}
 function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
@@ -141,12 +143,50 @@ function newResult(code){
 }
 function handle(code){stopScanner();code=String(code||"").trim();if(!code)return;let x=byCode(code);x?scanResult(x):newResult(code)}
 
+const scanConfig={
+   fps:15,
+   qrbox:{width:360,height:140},
+   aspectRatio:16/9,
+   tryHarder:true,
+   videoConstraints:{
+    width:{min:1080,ideal:1920,max:3840},
+    height:{min:600,ideal:1080,max:2160}
+   }
+};
+
+// 根据选中摄像头ID重启扫码
+async function restartScannerWithCameraId(deviceId){
+  if(!deviceId) return;
+  await stopScanner();
+  const st=document.getElementById("status");
+  scanner=new Html5Qrcode("reader");
+  scanning=true;
+  try{
+    await scanner.start(deviceId,scanConfig,t=>{
+      if(scanning){
+        scanning=false;
+        handle(t);
+      }
+    },()=>{});
+    st.textContent="正在扫描，请把条码放进框内…";
+  }catch(err){
+    console.error(err);
+    st.textContent="切换该摄像头失败";
+  }
+}
+
 async function startScanner(){
  stopScanner();
  content(`<div class="card">
  <button class="small back" onclick="back()">← 取消扫描</button>
  <h2>📷 扫描商品</h2>
  <div class="scan-tip">✅请允许摄像头权限<br>📌将<strong>横向条码</strong>放入长方形扫描框<br>📏距离手机15‑30厘米<br>💡避开反光，光线充足更容易识别</div>
+ <div class="camera-select-wrap">
+ <label>选择摄像头：</label>
+ <select id="cameraSelect" onchange="restartScannerWithCameraId(this.value)">
+ <option value="">正在加载摄像头列表…</option>
+ </select>
+ </div>
  <div id="reader"></div>
  <div id="status" class="status">正在启动摄像头…</div>
  </div>`);
@@ -158,19 +198,28 @@ async function startScanner(){
  let st=document.getElementById("status");
  scanner=new Html5Qrcode("reader");
 
- const scanConfig={
-   fps:15,
-   qrbox:{width:360,height:140},
-   aspectRatio:16/9,
-   tryHarder:true,
-   videoConstraints:{
-    width:{min:1080,ideal:1920,max:3840},
-    height:{min:600,ideal:1080,max:2160}
-   }
- };
+ //加载全部摄像头列表
+ try{
+    cameraDeviceList=await Html5Qrcode.getCameras();
+    const sel=document.getElementById("cameraSelect");
+    sel.innerHTML="";
+    if(!cameraDeviceList||cameraDeviceList.length===0){
+        sel.innerHTML="<option value=''>未检测到摄像头</option>";
+    }else{
+        cameraDeviceList.forEach((cam,idx)=>{
+            let labelName=(cam.label||`摄像头#${idx+1}`);
+            const opt=document.createElement("option");
+            opt.value=cam.id;
+            opt.textContent=labelName;
+            sel.appendChild(opt);
+        })
+    }
+ }catch(e){
+    console.warn("获取摄像头列表异常",e);
+ }
 
  try{
-  // iPhone Safari不支持 exact，使用preference提示environment优先后置
+  //优先提示environment优先后置
   await scanner.start({facingMode:"environment"},scanConfig,t=>{
    if(scanning){
     scanning=false;
@@ -180,37 +229,20 @@ async function startScanner(){
   scanning=true;
   st.textContent="正在扫描，请把条码放进框内…";
  }catch(errFacingMode){
-  console.warn("facingMode提示方式失败，降级获取摄像头列表",errFacingMode);
-  try{
-   const cameras=await Html5Qrcode.getCameras();
-   if(!cameras||cameras.length===0){
-    st.textContent="没有找到可用摄像头。";
-    return;
-   }
-   // iPhone Safari摄像头label全部为空，取数组最后一项作为后置兜底；安卓优先匹配back/rear标签
-   let targetCameraId=null;
-   for(let i=0;i<cameras.length;i++){
-    const label=(cameras[i].label||"").toLowerCase();
-    if(label.indexOf("back")!==-1||label.indexOf("rear")!==-1){
-     targetCameraId=cameras[i].id;
-     break;
-    }
-   }
-   // 找不到标记后置，取数组末尾（iPhone WebKit后置摄像头一般在数组最后）
-   if(!targetCameraId){
-    targetCameraId=cameras[cameras.length-1].id;
-   }
-   scanning=true;
-   await scanner.start(targetCameraId,scanConfig,t=>{
-    if(scanning){
-     scanning=false;
-     handle(t);
-    }
-   },()=>{});
-   st.textContent="正在扫描，请把条码放进框内…";
-  }catch(e){
-   console.error(e);
-   st.textContent="无法启动摄像头。必须HTTPS环境；本地file协议摄像头不可用，可手动输入条码。";
+  console.warn("facingMode提示方式失败，请下拉手动切换摄像头",errFacingMode);
+  //尝试取列表最后一个设备启动
+  if(cameraDeviceList&&cameraDeviceList.length>0){
+      const fallbackId=cameraDeviceList[cameraDeviceList.length-1].id;
+      scanning=true;
+      await scanner.start(fallbackId,scanConfig,t=>{
+        if(scanning){
+          scanning=false;
+          handle(t);
+        }
+      },()=>{});
+      st.textContent="已自动切换备选摄像头，可下拉框手动更换";
+  }else{
+      st.textContent="无法启动摄像头。必须HTTPS环境；本地file协议摄像头不可用，可手动输入条码。";
   }
  }
 }
