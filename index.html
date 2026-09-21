@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 ZXing版｜V4.0</title>
-<!--替换为ZXing‑JS，移除html5‑qrcode -->
+<title>📦 电器位置查询 V4.2｜长方形视觉扫码框</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
@@ -21,8 +20,15 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .location-box{background:#f1f3f5;border-radius:15px;padding:18px 12px;margin:14px 0}.location-label{font-size:13px;color:#777}.location-big{font-size:22px;font-weight:800;line-height:1.4}
 .result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.result-buttons button{width:100%}
 .scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
-#videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000}
+#videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000;position:relative}
 #previewVideo{width:100%;display:block}
+/* =========长方形扫码视觉遮罩========= */
+.scan‑overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
+.scan‑cutout{position:absolute;left:5%;right:5%;top:38%;bottom:38%;border:2px solid #42a5f5;border-radius:8px}
+.scan‑overlay::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:rgba(0,0,0,0.55)}
+.scan‑overlay::after{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;background:rgba(0,0,0,0.55)}
+.scan‑overlay .left{position:absolute;left:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
+.scan‑overlay .right{position:absolute;right:0;top:38%;width:5%;bottom:38%;background:rgba(0,0,0,0.55)}
 .location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
 .stock-tag{display:inline-block;margin:2px 0;}
@@ -35,7 +41,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V4.0 ZXing‑JS｜iPhone后置优先</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V4.2｜长方形扫码视觉框｜库存数量</div></header>
 <div class="container">
 <div id="home" class="card"><div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
@@ -72,6 +78,8 @@ function form(x=null,code=""){
  <label>型号</label><input id="model" value="${esc(x?.model||"")}" placeholder="例如 V15">
  <label>颜色</label><input id="color" value="${esc(x?.color||"")}" placeholder="例如 Gold / Black / White">
   <label>库存状态</label><select id="stock" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff"><option value="yes" ${x?.stock!=="no"?"selected":""}>✅ 有库存</option><option value="no" ${x?.stock==="no"?"selected":""}>❌ 无库存</option></select>
+ <label>库存数量</label>
+ <input id="stockQty" value="${esc(x?.stockQty??"")}" placeholder="填写数字，例如 5，可不填">
  <label>区域</label>
  <select id="area" onchange="updateShelfOptions()" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
   <option value="">请选择区域</option>
@@ -105,6 +113,7 @@ function saveItem(id){
     model:document.getElementById("model").value.trim(),
     color:document.getElementById("color").value.trim(),
     stock:document.getElementById("stock").value,
+    stockQty:document.getElementById("stockQty").value.trim(),
     area:document.getElementById("area").value.trim(),
     shelf:document.getElementById("shelf").value.trim(),
     updated:new Date().toLocaleString()
@@ -121,9 +130,11 @@ function openEditById(itemId){
 }
 function showItem(id){
  stopScanner();let x=items.find(q=>q.id===id);if(!x)return showAll();
+ const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
  content(`<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">${esc(x.name)}</div>
  <div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 ${esc(loc(x))}</div></div>
  <div style="margin:10px 0">库存状态：<b>${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</b></div>
+ <div style="margin:6px 0">库存数量：<b>${qtyText}</b></div>
  ${x.color?`<div>🎨 颜色：<b>${esc(x.color)}</b></div>`:""}
  <div class="meta">
  ${x.brand?`<div><b>品牌：</b>${esc(x.brand)}</div>`:""}
@@ -153,15 +164,21 @@ function handleScannedCode(code){
  existing ? scanResult(existing) : newResult(code);
 }
 
-// ==========ZXing‑JS扫码核心==========
+// ==========ZXing‑JS扫码核心｜增加长方形视觉遮罩层==========
 async function startScanner(){
  stopScanner();
+ // videoWrap内部插入遮罩overlay，pointer‑events:none不拦截点击
  content(`<div class="card">
  <button class="small back" onclick="back()">← 取消扫描</button>
  <h2>📷 扫描商品</h2>
- <div class="scan-tip">✅允许相机权限<br>📌把<strong>横向条码</strong>正对画面<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div>
+ <div class="scan‑tip">✅允许相机权限<br>📌把<strong>横向一维条码</strong>放进中间长方形框内<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div>
  <div id="videoWrap">
   <video id="previewVideo" playsinline muted autoplay></video>
+  <div class="scan‑overlay">
+    <div class="left"></div>
+    <div class="right"></div>
+    <div class="scan‑cutout"></div>
+  </div>
  </div>
  <div id="scanStatus" class="status">正在启动后置摄像头…</div>
  </div>`);
@@ -169,7 +186,6 @@ async function startScanner(){
  const videoEl=document.getElementById("previewVideo");
  if(!videoEl){return;}
  try{
-  //iOS关键：facingMode ideal environment 请求后置，不依赖deviceId
   mediaStream=await navigator.mediaDevices.getUserMedia({
    video:{
     facingMode:{ideal:"environment"},
@@ -181,9 +197,7 @@ async function startScanner(){
   await videoEl.play();
   scanning=true;
   st.textContent="✅后置已启动，请对准条码";
-  //初始化ZXing阅读器
   codeReader=new ZXing.BrowserMultiFormatReader();
-  //连续解码，限定扫描中间横向区域，适合一维商品条码
   codeReader.decodeFromVideoDevice(null, "previewVideo", (result,err)=>{
    if(!scanning) return;
    if(result){
@@ -191,7 +205,7 @@ async function startScanner(){
     handleScannedCode(result.text);
    }
   },{
-   delayBetweenScanAttempts:250
+   delayBetweenScanAttempts:220
   });
  }catch(err){
   console.error(err);
@@ -213,25 +227,28 @@ async function stopScanner(){
 }
 
 function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
-function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="请输入名称、品牌、型号、条码、颜色或位置…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
-function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return}let a=items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location].join(" ").toLowerCase().includes(q));render(a,r)}
+function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="可搜索：名称、品牌、型号、条码、颜色、位置、库存数量…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
+function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return}let a=items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location,String(x.stockQty||"")].join(" ").toLowerCase().includes(q));render(a,r)}
 function showAll(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>${items.length}</strong></div><div id="all"></div></div>`);render(items,document.getElementById("all"))}
 
 function render(a,r){
  if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
- r.innerHTML=a.map(x=>`
+ r.innerHTML=a.map(x=>{
+  const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
+  return `
  <div class="item" onclick="showItem('${esc(x.id)}')">
   <div class="item-title">${esc(x.name)}</div>
   <div class="meta">
    ${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}
    <br>
-   <span class="stock-tag">${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</span>
+   <span class="stock‑tag">${x.stock==="no"?"❌ 无库存":"✅ 有库存"}｜数量：${qtyText}</span>
    <br>
    <span class="location">📍 ${esc(loc(x))}</span>
    ${x.code?`<br>🔢 ${esc(x.code)}`:""}
-   <div class="update-time">🕒最后修改：${esc(x.updated||"无记录")}</div>
+   <div class="update‑time">🕒最后修改：${esc(x.updated||"无记录")}</div>
   </div>
- </div>`).join("")
+ </div>`;
+ }).join("")
 }
 
 function clearAllData(){
@@ -245,8 +262,8 @@ function clearAllData(){
  alert("所有资料已清除。");
  back();
 }
-function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>`);renderLocations()}
-function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
+function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font‑size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin‑top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin‑top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin‑top:14px"></div></div>`);renderLocations()}
+function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location‑list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
 function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
 function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
 </script>
