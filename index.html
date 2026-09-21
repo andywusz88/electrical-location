@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V2.2</title>
+<title>📦 电器位置查询 V2.5（增加最后修改时间）</title>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
@@ -22,10 +22,17 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
 #reader{width:100%;overflow:hidden;border-radius:13px}.location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
+.stock-tag{display:inline-block;margin:2px 0;}
+.update-time{font-size:12px;color:#888;margin-top:4px;}
+@media (max-width:400px){
+  .item-title{font-size:16px}
+  .meta{font-size:13px}
+  .grid button{font-size:15px;padding:12px 6px}
+}
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V2.2 · iPhone Chrome</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V2.5 · 最后修改时间</div></header>
 <div class="container">
 <div id="home" class="card"><div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
@@ -47,9 +54,7 @@ function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)
 function back(){stopScanner();content("")}
 function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||x.location||"未设置")}
 function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
-
 function openNewProduct(){try{form(null,"")}catch(e){console.error(e);alert("打开新增商品页面失败，请刷新页面后再试。")}}
-
 function form(x=null,code=""){
  stopScanner();let e=!!x,a=x?.area||"",s=x?.shelf||x?.location||"";
  content(`<div class="card"><button class="small back" onclick="${e?`showItem('${esc(x.id)}')`:"back()"}">← 返回</button><h2>${e?"编辑商品":"新增商品"}</h2>
@@ -84,18 +89,43 @@ function saveItem(id){
  let code=document.getElementById("code").value.trim(),name=document.getElementById("name").value.trim();
  if(!name){alert("请输入商品名称");return}
  let d=code&&items.find(x=>x.code===code&&x.id!==id);if(d){alert("这个条码已经存在："+d.name);showItem(d.id);return}
- let x={id:id||Date.now().toString(),code,name,brand:document.getElementById("brand").value.trim(),model:document.getElementById("model").value.trim(),color:document.getElementById("color").value.trim(),stock:document.getElementById("stock").value,area:document.getElementById("area").value.trim(),shelf:document.getElementById("shelf").value.trim(),updated:new Date().toLocaleString()};
+ let x={
+    id:id||Date.now().toString(),
+    code,
+    name,
+    brand:document.getElementById("brand").value.trim(),
+    model:document.getElementById("model").value.trim(),
+    color:document.getElementById("color").value.trim(),
+    stock:document.getElementById("stock").value,
+    area:document.getElementById("area").value.trim(),
+    shelf:document.getElementById("shelf").value.trim(),
+    updated:new Date().toLocaleString() // 每次保存自动更新修改时间
+ };
  if(id){let i=items.findIndex(q=>q.id===id);if(i>=0)items[i]=x}else items.push(x);save();
  showItem(x.id)
 }
 function del(id){let x=items.find(q=>q.id===id);if(x&&confirm("确定删除「"+x.name+"」吗？")){items=items.filter(q=>q.id!==id);save();showAll()}}
-function editItem(id){let x=items.find(q=>q.id===id);if(x)form(x);}
+
+function openEditById(itemId){
+  const item = items.find(q=>q.id===itemId);
+  if(item){
+    form(item);
+  }
+}
+
 function showItem(id){
  stopScanner();let x=items.find(q=>q.id===id);if(!x)return showAll();
  content(`<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">${esc(x.name)}</div>
- <div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 ${esc(loc(x))}</div></div><div style="margin:10px 0">库存状态：<b>${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</b></div>
- ${x.color?`<div>🎨 颜色：<b>${esc(x.color)}</b></div>`:""}<div class="meta">${x.brand?`<div><b>品牌：</b>${esc(x.brand)}</div>`:""}${x.model?`<div><b>型号：</b>${esc(x.model)}</div>`:""}${x.code?`<div><b>条码：</b>${esc(x.code)}</div>`:""}</div>
- <div class="result-buttons"><button class="primary" type="button" onclick="editItem('${esc(x.id)}')">✏️ 编辑</button><button type="button" onclick="showSearch()">🔍 搜索</button></div>
+ <div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 ${esc(loc(x))}</div></div>
+ <div style="margin:10px 0">库存状态：<b>${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</b></div>
+ ${x.color?`<div>🎨 颜色：<b>${esc(x.color)}</b></div>`:""}
+ <div class="meta">
+ ${x.brand?`<div><b>品牌：</b>${esc(x.brand)}</div>`:""}
+ ${x.model?`<div><b>型号：</b>${esc(x.model)}</div>`:""}
+ ${x.code?`<div><b>条码：</b>${esc(x.code)}</div>`:""}
+ <div class="update-time">🕒 最后修改：${esc(x.updated||"无记录")}</div>
+ </div>
+ <div class="result-buttons"><button class="primary" type="button" onclick="openEditById('${esc(x.id)}')">✏️ 编辑</button><button type="button" onclick="showSearch()">🔍 搜索</button></div>
  <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 继续扫描</button></div>`)
 }
 function scanResult(x){showItem(x.id)}
@@ -103,7 +133,6 @@ function registerNewProduct(code){
  stopScanner();
  try{form(null,code||"")}catch(e){console.error(e);alert("打开商品登记页面失败，请刷新页面后再试。")}
 }
-
 function newResult(code){
  content(`<div class="card result-card"><div class="result-icon">🆕</div><div class="result-found">新商品</div><div class="result-name" style="font-size:22px">尚未登记</div>
  <div class="location-box"><div class="location-label">扫描到的条码</div><div style="font-size:18px;font-weight:700;word-break:break-all">${esc(code)}</div></div>
@@ -111,23 +140,84 @@ function newResult(code){
  <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 重新扫描</button><button style="width:100%;margin-top:9px" onclick="back()">🏠 返回首页</button></div>`)
 }
 function handle(code){stopScanner();code=String(code||"").trim();if(!code)return;let x=byCode(code);x?scanResult(x):newResult(code)}
-async function startScanner(){
- stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 取消扫描</button><h2>📷 扫描商品</h2>
- <div class="scan-tip">请允许 Chrome 使用摄像头。<br><br>将商品条码放到扫描框中央。<br>已登记商品：扫描后直接显示存放位置。<br>新商品：扫描后进入登记。</div><div id="reader"></div><div id="status" class="status">正在启动摄像头…</div></div>`);
- if(!window.Html5Qrcode){document.getElementById("status").textContent="扫码组件加载失败，请检查网络连接。";return}
- let st=document.getElementById("status");scanner=new Html5Qrcode("reader");
- try{let cs=await Html5Qrcode.getCameras();if(!cs?.length){st.textContent="没有找到可用摄像头。";return}
- let c=cs.find(q=>/back|rear|environment|后置/i.test(q.label||""))||cs[0];scanning=true;
- await scanner.start(c.id,{fps:10,qrbox:{width:280,height:180},aspectRatio:1.777},t=>{if(scanning){scanning=false;handle(t)}},()=>{});
- st.textContent="正在扫描，请将条码放入框内…"}catch(e){console.error(e);st.textContent="无法启动摄像头。请确认 Chrome 已允许使用摄像头，并使用 HTTPS 页面。"}
-}
-async function stopScanner(){scanning=false;if(scanner){try{if(scanner.getState&&scanner.getState()===2)await scanner.stop()}catch(e){}try{scanner.clear()}catch(e){}scanner=null}}
-function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
 
+async function startScanner(){
+ stopScanner();
+ content(`<div class="card">
+ <button class="small back" onclick="back()">← 取消扫描</button>
+ <h2>📷 扫描商品</h2>
+ <div class="scan-tip">✅请允许摄像头权限<br>📌将<strong>横向条码</strong>放入长方形扫描框<br>📏距离手机15‑30厘米<br>💡避开反光，光线充足更容易识别</div>
+ <div id="reader"></div>
+ <div id="status" class="status">正在启动摄像头…</div>
+ </div>`);
+
+ if(!window.Html5Qrcode){
+  document.getElementById("status").textContent="扫码组件加载失败，请检查网络连接。";
+  return;
+ }
+ let st=document.getElementById("status");
+ scanner=new Html5Qrcode("reader");
+ try{
+  let cs=await Html5Qrcode.getCameras();
+  if(!cs?.length){
+   st.textContent="没有找到可用摄像头。";
+   return;
+  }
+  let c=cs.find(q=>/back|rear|environment|后置/i.test(q.label||""))||cs[0];
+  scanning=true;
+  const scanConfig={
+   fps:15,
+   qrbox:{width:360,height:140},
+   aspectRatio:16/9,
+   videoConstraints:{
+    width:{min:1080,ideal:1920,max:3840},
+    height:{min:600,ideal:1080,max:2160}
+   }
+  };
+  await scanner.start(c.id,scanConfig,t=>{
+   if(scanning){
+    scanning=false;
+    handle(t);
+   }
+  },()=>{});
+  st.textContent="正在扫描，请把条码放进框内…";
+ }catch(e){
+  console.error(e);
+  st.textContent="无法启动摄像头。必须HTTPS环境；本地file协议摄像头不可用，可手动输入条码。";
+ }
+}
+
+async function stopScanner(){
+ scanning=false;
+ if(scanner){
+  try{
+   if(scanner.getState&&scanner.getState()===2)await scanner.stop();
+  }catch(e){}
+  try{scanner.clear();}catch(e){}
+  scanner=null;
+ }
+}
+function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
 function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="请输入名称、品牌、型号、条码、颜色或位置…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
 function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return}let a=items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location].join(" ").toLowerCase().includes(q));render(a,r)}
 function showAll(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>${items.length}</strong></div><div id="all"></div></div>`);render(items,document.getElementById("all"))}
-function render(a,r){if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}r.innerHTML=a.map(x=>`<div class="item" onclick="showItem('${esc(x.id)}')"><div class="item-title">${esc(x.name)}</div><div class="meta">${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}<br><span class="location">📍 ${esc(loc(x))}</span>${x.code?`<br>🔢 ${esc(x.code)}`:""}</div></div>`).join("")}
+
+function render(a,r){
+ if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
+ r.innerHTML=a.map(x=>`
+ <div class="item" onclick="showItem('${esc(x.id)}')">
+  <div class="item-title">${esc(x.name)}</div>
+  <div class="meta">
+   ${x.brand?esc(x.brand):""}${x.model?" · "+esc(x.model):""}${x.color?" · "+esc(x.color):""}
+   <br>
+   <span class="stock-tag">${x.stock==="no"?"❌ 无库存":"✅ 有库存"}</span>
+   <br>
+   <span class="location">📍 ${esc(loc(x))}</span>
+   ${x.code?`<br>🔢 ${esc(x.code)}`:""}
+   <div class="update-time">🕒最后修改：${esc(x.updated||"无记录")}</div>
+  </div>
+ </div>`).join("")
+}
 
 function clearAllData(){
  const password=prompt("请输入清除资料密码：");
@@ -140,7 +230,6 @@ function clearAllData(){
  alert("所有资料已清除。");
  back();
 }
-
 function manageLocations(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>`);renderLocations()}
 function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}e.innerHTML=locations.map(x=>`<div class="item location-list"><div>📍 ${esc(x.area||"")}${x.area&&x.shelf?" → ":""}${esc(x.shelf||"")}</div><button class="danger small" onclick="removeLocation('${esc(x.id)}')">删除</button></div>`).join("")}
 function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
@@ -148,3 +237,4 @@ function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){
 </script>
 </body>
 </html>
+<!-- （注：内容由AI生成） -->
