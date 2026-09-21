@@ -59,12 +59,28 @@ function form(x=null,code=""){
  <label>型号</label><input id="model" value="${esc(x?.model||"")}" placeholder="例如 V15">
  <label>颜色</label><input id="color" value="${esc(x?.color||"")}" placeholder="例如 Gold / Black / White">
   <label>库存状态</label><select id="stock" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff"><option value="yes" ${x?.stock!=="no"?"selected":""}>✅ 有库存</option><option value="no" ${x?.stock==="no"?"selected":""}>❌ 无库存</option></select>
- <label>区域</label><input id="area" list="areas" value="${esc(a)}" placeholder="例如 Basement / Garage / 客厅">
- <label>货架 / 存放位置</label><input id="shelf" value="${esc(s)}" placeholder="例如 左边货架 / 第一层货架 / 电视柜">
- <datalist id="areas">${[...new Set(locations.map(x=>x.area).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join("")}</datalist>
+ <label>区域</label>
+ <select id="area" onchange="updateShelfOptions()" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff">
+  <option value="">请选择区域</option>
+  ${[...new Set(locations.map(x=>x.area).filter(Boolean))].map(v=>`<option value="${esc(v)}" ${v===a?"selected":""}>${esc(v)}</option>`).join("")}
+ </select>
+ <label>货架 / 存放位置</label>
+ <select id="shelf" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff"></select>
  <button class="primary" style="width:100%;margin-top:16px" onclick="saveItem('${e?esc(x.id):""}')">💾 保存</button>
  ${e?`<button class="danger" style="width:100%;margin-top:9px" onclick="del('${esc(x.id)}')">🗑 删除商品</button>`:""}</div>`);
+ let shelfEl=document.getElementById("shelf");if(shelfEl)shelfEl.dataset.current=JSON.stringify(s);
+ updateShelfOptions();
 }
+function updateShelfOptions(){
+ let areaEl=document.getElementById("area"),shelfEl=document.getElementById("shelf");
+ if(!areaEl||!shelfEl)return;
+ let area=areaEl.value,current=shelfEl.dataset.current||shelfEl.value||"";
+ let shelves=[...new Set(locations.filter(q=>q.shelf&&(!area||q.area===area)).map(q=>q.shelf).filter(Boolean))];
+ shelfEl.innerHTML='<option value="">请选择货架 / 存放位置</option>'+shelves.map(v=>`<option value="${esc(v)}" ${v===current?"selected":""}>${esc(v)}</option>`).join("");
+ if(current&&shelves.includes(current))shelfEl.value=current;else shelfEl.value="";
+ shelfEl.dataset.current=shelfEl.value;
+}
+
 function saveItem(id){
  let code=document.getElementById("code").value.trim(),name=document.getElementById("name").value.trim();
  if(!name){alert("请输入商品名称");return}
