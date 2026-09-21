@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V3.1｜iPhone后置扫码调优</title>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<title>📦 电器位置查询 ZXing版｜V4.0</title>
+<!--替换为ZXing‑JS，移除html5‑qrcode -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
 header{background:#fff;padding:18px 16px 12px;position:sticky;top:0;z-index:10;border-bottom:1px solid #e5e5e5}
@@ -20,7 +21,9 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 .location-box{background:#f1f3f5;border-radius:15px;padding:18px 12px;margin:14px 0}.location-label{font-size:13px;color:#777}.location-big{font-size:22px;font-weight:800;line-height:1.4}
 .result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.result-buttons button{width:100%}
 .scan-tip{background:#f7f7f7;border-radius:11px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:11px}.status{font-size:14px;color:#666;margin-top:9px;min-height:20px}
-#reader{width:100%;overflow:hidden;border-radius:13px}.location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#videoWrap{width:100%;overflow:hidden;border-radius:13px;background:#000}
+#previewVideo{width:100%;display:block}
+.location-list{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .stat{display:flex;justify-content:space-between;background:#f7f7f7;padding:12px;border-radius:11px;margin-bottom:12px}.stat strong{font-size:18px}
 .stock-tag{display:inline-block;margin:2px 0;}
 .update-time{font-size:12px;color:#888;margin-top:4px;}
@@ -32,7 +35,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V3.1 iPhone后置扫码调优</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V4.0 ZXing‑JS｜iPhone后置优先</div></header>
 <div class="container">
 <div id="home" class="card"><div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
@@ -47,8 +50,11 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}.back{margin-bot
 </div>
 <script>
 const IK="myElectricalLocation_v22",LK="myElectricalLocations_v22";
-let items=JSON.parse(localStorage.getItem(IK)||"[]"),locations=JSON.parse(localStorage.getItem(LK)||"[]"),scanner=null,scanning=false;
+let items=JSON.parse(localStorage.getItem(IK)||"[]"),locations=JSON.parse(localStorage.getItem(LK)||"[]");
 let mediaStream=null;
+let codeReader=null;
+let scanning=false;
+
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 function save(){localStorage.setItem(IK,JSON.stringify(items));localStorage.setItem(LK,JSON.stringify(locations))}
 function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
@@ -56,6 +62,7 @@ function back(){stopScanner();content("")}
 function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||x.location||"未设置")}
 function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
 function openNewProduct(){try{form(null,"")}catch(e){console.error(e);alert("打开新增商品页面失败，请刷新页面后再试。")}}
+
 function form(x=null,code=""){
  stopScanner();let e=!!x,a=x?.area||"",s=x?.shelf||x?.location||"";
  content(`<div class="card"><button class="small back" onclick="${e?`showItem('${esc(x.id)}')`:"back()"}">← 返回</button><h2>${e?"编辑商品":"新增商品"}</h2>
@@ -138,78 +145,73 @@ function newResult(code){
  <button type="button" class="primary" style="width:100%" onclick="registerNewProduct('${esc(code)}')">➕ 登记这个商品</button>
  <button style="width:100%;margin-top:9px" onclick="startScanner()">📷 重新扫描</button><button style="width:100%;margin-top:9px" onclick="back()">🏠 返回首页</button></div>`)
 }
-function handle(code){stopScanner();code=String(code||"").trim();if(!code)return;let x=byCode(code);x?scanResult(x):newResult(code)}
+function handleScannedCode(code){
+ stopScanner();
+ code=String(code||"").trim();
+ if(!code) return;
+ const existing=byCode(code);
+ existing ? scanResult(existing) : newResult(code);
+}
 
-//=====iPhone一维条码调优配置=====
-const scanCfg={
- fps:12,
- qrbox:{width:340,height:130}, //一维码横向框
- aspectRatio:16/9,
- tryHarder:true, //开启重度解码，提升一维码识别
- videoConstraints:{
-  width:{ideal:1280}, //不要盲目开1920，iPhone网页过高分辨率会降采样变糊
-  height:{ideal:720}
- }
-};
-
+// ==========ZXing‑JS扫码核心==========
 async function startScanner(){
  stopScanner();
  content(`<div class="card">
  <button class="small back" onclick="back()">← 取消扫描</button>
  <h2>📷 扫描商品</h2>
- <div class="scan-tip">✅允许相机权限<br>📌把<strong>横向条码</strong>放入长方形框<br>📏距离手机<strong>15‑30厘米，不要贴太近</strong><br>💡避开反光，光线充足<br>⚠️iPhone网页无法控制自动对焦，贴很近画面会模糊扫不出</div>
- <div id="reader"></div>
- <div id="status" class="status">正在启动摄像头…</div>
+ <div class="scan-tip">✅允许相机权限<br>📌把<strong>横向条码</strong>正对画面<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div>
+ <div id="videoWrap">
+  <video id="previewVideo" playsinline muted autoplay></video>
+ </div>
+ <div id="scanStatus" class="status">正在启动后置摄像头…</div>
  </div>`);
- if(!window.Html5Qrcode){
-  document.getElementById("status").textContent="扫码组件加载失败，请检查网络连接。";
-  return;
- }
- const st=document.getElementById("status");
- scanner=new Html5Qrcode("reader");
+ const st=document.getElementById("scanStatus");
+ const videoEl=document.getElementById("previewVideo");
+ if(!videoEl){return;}
  try{
-  //优先请求后置摄像头媒体流
+  //iOS关键：facingMode ideal environment 请求后置，不依赖deviceId
   mediaStream=await navigator.mediaDevices.getUserMedia({
-   video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}
-  });
-  let cameras=[];
-  try{cameras=await Html5Qrcode.getCameras();}catch(e){console.warn("获取摄像头列表异常",e);}
-  let useDeviceId=null;
-  if(cameras&&cameras.length>0){
-   for(let c of cameras){
-    const lab=(c.label||"").toLowerCase();
-    if(lab.includes("back")||lab.includes("rear")){useDeviceId=c.id;break;}
+   video:{
+    facingMode:{ideal:"environment"},
+    width:{ideal:1280},
+    height:{ideal:720}
    }
-   //iPhone label全部为空，取最后一项（优先后置）
-   if(!useDeviceId) useDeviceId=cameras[cameras.length-1].id;
-  }
-  if(useDeviceId){
-   scanning=true;
-   await scanner.start(useDeviceId,scanCfg,(t)=>{
-    if(scanning){scanning=false;handle(t);}
-   },()=>{});
-   st.textContent="✅后置摄像头已启动，请对准条码（距离15‑30cm）";
-  }else{
-   throw new Error("无法获取摄像头ID");
-  }
+  });
+  videoEl.srcObject=mediaStream;
+  await videoEl.play();
+  scanning=true;
+  st.textContent="✅后置已启动，请对准条码";
+  //初始化ZXing阅读器
+  codeReader=new ZXing.BrowserMultiFormatReader();
+  //连续解码，限定扫描中间横向区域，适合一维商品条码
+  codeReader.decodeFromVideoDevice(null, "previewVideo", (result,err)=>{
+   if(!scanning) return;
+   if(result){
+    scanning=false;
+    handleScannedCode(result.text);
+   }
+  },{
+   delayBetweenScanAttempts:250
+  });
  }catch(err){
   console.error(err);
-  st.textContent="⚠️摄像头启动异常，请使用【⌨️输入条码】录入";
+  st.textContent="⚠️摄像头启动失败，请使用【⌨️输入条码】录入";
+  stopScanner();
  }
 }
 
 async function stopScanner(){
  scanning=false;
- if(scanner){
-  try{if(scanner.getState&&scanner.getState()===2)await scanner.stop();}catch(e){}
-  try{scanner.clear();}catch(e){}
-  scanner=null;
+ if(codeReader){
+  try{codeReader.reset();}catch(e){}
+  codeReader=null;
  }
  if(mediaStream){
-  mediaStream.getTracks().forEach(track=>track.stop());
+  mediaStream.getTracks().forEach(t=>t.stop());
   mediaStream=null;
  }
 }
+
 function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
 function showSearch(){stopScanner();content(`<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="请输入名称、品牌、型号、条码、颜色或位置…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>`);setTimeout(()=>document.getElementById("search")?.focus(),100)}
 function doSearch(){let q=(document.getElementById("search")?.value||"").trim().toLowerCase(),r=document.getElementById("results");if(!r)return;if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return}let a=items.filter(x=>[x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,x.location].join(" ").toLowerCase().includes(q));render(a,r)}
