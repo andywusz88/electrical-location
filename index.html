@@ -191,12 +191,12 @@ function refreshSubSelect(presetSubId){
     if(!mainSel||!subSel)return;
     let mainId=mainSel.value;
     if(!mainId){
-        subSel.innerHTML="<option value="">先选择大类</option>";
+        subSel.innerHTML='<option value="">先选择大类</option>';
         return;
     }
     let mainObj=categories.find(m=>m.id===mainId);
     if(!mainObj||!mainObj.subs.length){
-        subSel.innerHTML="<option value="">该大类暂无小类</option>";
+        subSel.innerHTML='<option value="">该大类暂无小类</option>';
         return;
     }
     let html="<option value="">--请选择小类--</option>";
