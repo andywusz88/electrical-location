@@ -137,33 +137,37 @@ function delMainCat(mainId){
     categories=categories.filter(i=>i.id!==mainId);
     save();renderCategoryList();
 }
+function editSubCat(mainId,subId){
+ let main=categories.find(i=>i.id===mainId); if(!main)return;
+ let sub=main.subs.find(x=>x.id===subId); if(!sub)return;
+ let n=prompt("修改小类名称：",sub.name); if(n===null)return; n=n.trim();
+ if(!n){alert("小类名称不能为空");return;}
+ if(main.subs.some(x=>x.id!==subId&&x.name===n)){alert("该大类下已经存在同名小类");return;}
+ sub.name=n; save(); renderCategoryList();
+}
 function delSubCat(mainId,subId){
-    if(!confirm("确定删除此小类？"))return;
-    let main=categories.find(i=>i.id===mainId);
-    if(!main)return;
-    main.subs=main.subs.filter(s=>s.id!==subId);
-    save();renderCategoryList();
+ if(!confirm("确定删除此小类？"))return;
+ let main=categories.find(i=>i.id===mainId); if(!main)return;
+ main.subs=main.subs.filter(s=>s.id!==subId); save(); renderCategoryList();
 }
 function renderCategoryList(){
-    let wrap=document.getElementById("catList");
-    if(!wrap)return;
-    if(!categories.length){wrap.innerHTML="<div class='empty'>暂无分类，请先添加大类</div>";return;}
-    let out="";
-    for(let m of categories){
-        out+='<div class="cat-item"><div><b>📦 '+esc(m.name)+'</b><button class="small" onclick="addSubCat(\''+esc(m.id)+'\')">+增加小类</button><button class="small danger" onclick="delMainCat(\''+esc(m.id)+'\')">删除大类</button></div>';
-        for(let s of m.subs){
-            out+='<div class="cat-sub">- '+esc(s.name)+'<button class="small danger" onclick="delSubCat(\''+esc(m.id)+'\',\''+esc(s.id)+'\')">删除</button></div>';
-        }
-        out+="</div>";
-    }
-    wrap.innerHTML=out;
+ let wrap=document.getElementById("catList"); if(!wrap)return;
+ if(!categories.length){wrap.innerHTML="<div class='empty'>暂无分类，请先添加大类</div>";return;}
+ let out="";
+ for(let m of categories){
+  out+='<div class="cat-item"><div><b>📦 '+esc(m.name)+'</b><button class="small" onclick="addSubCat(\''+esc(m.id)+'\')">+增加小类</button><button class="small danger" onclick="delMainCat(\''+esc(m.id)+'\')">删除大类</button></div>';
+  let subs=[...(m.subs||[])].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"zh-CN"));
+  for(let x of subs) out+='<div class="cat-sub">- '+esc(x.name)+'<button class="small" onclick="editSubCat(\''+esc(m.id)+'\',\''+esc(x.id)+'\')">修改</button><button class="small danger" onclick="delSubCat(\''+esc(m.id)+'\',\''+esc(x.id)+'\')">删除</button></div>';
+  out+='</div>';
+ }
+ wrap.innerHTML=out;
 }
-
 function form(x,code){
  stopScanner();
  let e=!!x;
  let a=x?.area||"";
  let s=x?.shelf||x?.location||"";
+ if(!a && x?.location){let parts=String(x.location).split(" → ");a=parts[0]||"";s=parts.slice(1).join(" → ")||"";}
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
@@ -367,24 +371,7 @@ function doSearch(){
     });
     render(a,r);
 }
-function showAll(){stopScanner();items=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+items.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(items,document.getElementById("all"))}
-
-function render(a,r){
- if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
- let out="";
- a.forEach(x=>{
-  const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
-  const catTxt=getCatText(x);
-  out+='<div class="item" onclick="showItem(\''+esc(x.id)+'\')"><div class="item-title">'+esc(x.name)+'</div><div class="meta">';
-  if(x.brand)out+=esc(x.brand);
-  if(x.model)out+=" · "+esc(x.model);
-  if(x.color)out+=" · "+esc(x.color);
-  out+='<br>🏷种类：'+catTxt+'<br><span class="stock-tag">'+(x.stock==="no"?"❌ 无库存":"✅ 有库存")+'｜数量：'+qtyText+'</span><br><span class="location">📍 '+esc(loc(x))+'</span>';
-  if(x.code)out+='<br>🔢 '+esc(x.code);
-  out+='<div class="update-time">🕒最后修改：'+esc(x.updated||"无记录")+'</div></div></div>';
- });
- r.innerHTML=out;
-}
+function showAll(){stopScanner();let sortedItems=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+sortedItems.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(sortedItems,document.getElementById("all"))}
 
 function clearAllData(){
  const password=prompt("请输入清除资料密码：");
@@ -398,11 +385,46 @@ function clearAllData(){
  alert("所有资料已清除。");
  back();
 }
-function manageLocations(){stopScanner();let locHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">先建立“区域”，再为该区域建立对应的“货架 / 位置”。新增商品时会按区域筛选货架。</p><input id="na" placeholder="区域，例如 Basement / Garage / 客厅"><input id="ns" style="margin-top:8px" placeholder="货架 / 位置，例如 左边货架 / 第一层"><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>';content(locHtml);renderLocations()}
-function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return}let out="";locations.forEach(x=>{out+='<div class="item location-list"><div>📍 '+esc(x.area||"")+(x.area&&x.shelf?" → ":"")+esc(x.shelf||"")+'</div><button class="danger small" onclick="removeLocation(\''+esc(x.id)+'\')">删除</button></div>';});e.innerHTML=out;}
-function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
-function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
-
+function manageLocations(){
+ stopScanner();
+ let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">按照“大类 → 小类”的层级管理位置。选择大类后，小类只显示该大类下面的选项。</p><label>商品大类 / 区域</label><select id="na"><option value="">请选择大类 / 区域</option></select><label>商品小类 / 货架位置</label><select id="ns"><option value="">请选择小类 / 货架位置</option></select><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>';
+ content(h); populateLocationMainSelect(); renderLocations();
+}
+function populateLocationMainSelect(){
+ let e=document.getElementById("na"); if(!e)return;
+ let mains=[...categories].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"zh-CN"));
+ e.innerHTML='<option value="">请选择大类 / 区域</option>'+mains.map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join("");
+ e.onchange=()=>populateLocationSubSelect(e.value);
+}
+function populateLocationSubSelect(mainName){
+ let e=document.getElementById("ns"); if(!e)return;
+ let main=categories.find(m=>m.name===mainName);
+ let names=main?[...(main.subs||[])].map(x=>x.name):[];
+ names.push(...locations.filter(x=>x.area===mainName&&x.shelf).map(x=>x.shelf));
+ names=[...new Set(names)].sort((a,b)=>String(a).localeCompare(String(b),"zh-CN"));
+ e.innerHTML='<option value="">请选择小类 / 货架位置</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+}
+function editLocation(id){
+ let x=locations.find(q=>q.id===id); if(!x)return;
+ let a=prompt("修改大类 / 区域：",x.area||""); if(a===null)return; a=a.trim(); if(!a){alert("大类 / 区域不能为空");return;}
+ let sh=prompt("修改小类 / 货架位置：",x.shelf||""); if(sh===null)return; sh=sh.trim(); if(!sh){alert("小类 / 货架位置不能为空");return;}
+ if(locations.some(q=>q.id!==id&&q.area===a&&q.shelf===sh)){alert("这个位置已经存在");return;}
+ x.area=a;x.shelf=sh;save();renderLocations();
+}
+function renderLocations(){
+ let e=document.getElementById("ll"); if(!e)return;
+ if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return;}
+ let a=[...locations].sort((x,y)=>{let c=String(x.area||"").localeCompare(String(y.area||""),"zh-CN");return c||String(x.shelf||"").localeCompare(String(y.shelf||""),"zh-CN")});
+ e.innerHTML=a.map(x=>'<div class="item location-list"><div>📍 '+esc(x.area||"")+(x.area&&x.shelf?" → ":"")+esc(x.shelf||"")+'</div><div style="display:flex;gap:6px"><button class="small" onclick="editLocation(\''+esc(x.id)+'\')">修改</button><button class="danger small" onclick="removeLocation(\''+esc(x.id)+'\')">删除</button></div></div>').join("");
+}
+function addLocation(){
+ let a=document.getElementById("na").value.trim(),sh=document.getElementById("ns").value.trim();
+ if(!a||!sh){alert("请选择大类 / 区域以及小类 / 货架位置");return;}
+ if(locations.some(x=>x.area===a&&x.shelf===sh)){alert("这个位置已经存在");return;}
+ locations.push({id:Date.now().toString(),area:a,shelf:sh});save();
+ document.getElementById("na").value=""; populateLocationSubSelect(""); renderLocations();
+}
+function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations();}}
 window.startScanner=startScanner;
 window.manualBarcode=manualBarcode;
 window.openNewProduct=openNewProduct;
@@ -426,6 +448,7 @@ window.newResult=newResult;
 window.doSearch=doSearch;
 window.addLocation=addLocation;
 window.removeLocation=removeLocation;
+window.editLocation=editLocation;
 </script>
 </body>
 </html>
