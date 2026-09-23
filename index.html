@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询</title>
+<title>📦 电器位置查询 V2.2｜小类名称排序修复</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -61,7 +61,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 </style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V2.2</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V2.2｜修复小类下拉中文排序</div></header>
 <div class="container">
 <div id="home" class="card">
  <div class="grid">
@@ -183,28 +183,25 @@ function form(x,code){
     refreshSubSelect(selSubId);
  },20);
 }
+
+// =========修复点：小类下拉按照中文名称拼音排序========
 function refreshSubSelect(presetSubId){
     let mainSel=document.getElementById("mainCatSel");
     let subSel=document.getElementById("subCatSel");
     if(!mainSel||!subSel)return;
     let mainId=mainSel.value;
     if(!mainId){
-        subSel.innerHTML='<option value="">先选择大类</option>';
+        subSel.innerHTML="<option value="">先选择大类</option>";
         return;
     }
     let mainObj=categories.find(m=>m.id===mainId);
     if(!mainObj||!mainObj.subs.length){
-        subSel.innerHTML='<option value="">该大类暂无小类</option>';
+        subSel.innerHTML="<option value="">该大类暂无小类</option>";
         return;
     }
-    let html='<option value="">--请选择小类--</option>';
-    let sortedSubs=[...mainObj.subs].sort((a,b)=>{
-        return String(a.name||"").localeCompare(
-            String(b.name||""),
-            "zh-CN",
-            {numeric:true,sensitivity:"base"}
-        );
-    });
+    let html="<option value="">--请选择小类--</option>";
+    //复制数组，localeCompare 中文zh‑CN按拼音升序排序
+    const sortedSubs = [...mainObj.subs].sort((a,b)=> a.name.localeCompare(b.name,"zh-CN"));
     sortedSubs.forEach(s=>{
         html+='<option value="'+esc(s.id)+'" '+(s.id===presetSubId?"selected":"")+'>'+esc(s.name)+'</option>';
     });
@@ -215,7 +212,7 @@ function updateShelfOptions(){
  let areaEl=document.getElementById("area"),shelfEl=document.getElementById("shelf");
  if(!areaEl||!shelfEl)return;
  let area=areaEl.value,current=shelfEl.dataset.current||"";
- let shelves=[...new Set(locations.filter(q=>q.area===area&&q.shelf).map(q=>q.shelf))].sort((a,b)=>String(a).localeCompare(String(b),"zh-CN",{numeric:true,sensitivity:"base"}));
+ let shelves=[...new Set(locations.filter(q=>q.area===area&&q.shelf).map(q=>q.shelf))];
  let shelfHtml='<option value="">请选择货架 / 存放位置</option>';
  shelves.forEach(v=>{shelfHtml+='<option value="'+esc(v)+'" '+(v===current?"selected":"")+'>'+esc(v)+'</option>';});
  shelfEl.innerHTML=shelfHtml;
@@ -225,7 +222,8 @@ function updateShelfOptions(){
 function saveItem(id){
  let code=document.getElementById("code").value.trim(),name=document.getElementById("name").value.trim();
  if(!name){alert("请输入商品名称");return}
- let d=code&&items.find(x=>x.code===code&&x.id!==id);if(d){alert("这个条码已经存在："+d.name);showItem(d.id);return}
+ let d=code&&items.find(x=>x.code===code&&x.id!==id);
+ if(d){alert("这个条码已经存在："+d.name);showItem(d.id);return}
 
  let mainCatId=document.getElementById("mainCatSel").value;
  let subCatId=document.getElementById("subCatSel").value;
@@ -245,12 +243,28 @@ function saveItem(id){
     shelf:document.getElementById("shelf").value.trim(),
     updated:new Date().toLocaleString()
  };
- if(id){let i=items.findIndex(q=>q.id===id);if(i>=0)items[i]=x}else items.push(x);
- if(x.area||x.shelf){if(!locations.some(q=>q.area===x.area&&q.shelf===x.shelf)){locations.push({id:Date.now().toString(),area:x.area,shelf:x.shelf});}}
+ if(id){
+    let i=items.findIndex(q=>q.id===id);
+    if(i>=0) items[i]=x;
+ }else{
+    items.push(x);
+ }
+ if(x.area||x.shelf){
+    if(!locations.some(q=>q.area===x.area&&q.shelf===x.shelf)){
+        locations.push({id:Date.now().toString(),area:x.area,shelf:x.shelf});
+    }
+ }
  save();
- showItem(x.id)
+ showItem(x.id);
 }
-function del(id){let x=items.find(q=>q.id===id);if(x&&confirm("确定删除「"+x.name+"」吗？")){items=items.filter(q=>q.id!==id);save();showAll()}}
+function del(id){
+    let x=items.find(q=>q.id===id);
+    if(x&&confirm("确定删除「"+x.name+"」吗？")){
+        items=items.filter(q=>q.id!==id);
+        save();
+        showAll();
+    }
+}
 function openEditById(itemId){
   const item = items.find(q=>q.id===itemId);
   if(item){form(item);}
@@ -266,7 +280,9 @@ function getCatText(item){
 }
 
 function showItem(id){
- stopScanner();let x=items.find(q=>q.id===id);if(!x)return showAll();
+ stopScanner();
+ let x=items.find(q=>q.id===id);
+ if(!x)return showAll();
  const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
  const catTxt=getCatText(x);
  let itemHtml='<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">'+esc(x.name)+'</div><div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 '+esc(loc(x))+'</div></div><div style="margin:10px 0">库存状态：<b>'+(x.stock==="no"?"❌ 无库存":"✅ 有库存")+'</b></div><div style="margin:6px 0">库存数量：<b>'+qtyText+'</b></div><div style="margin:6px 0">商品种类：<b>'+catTxt+'</b></div>';
@@ -356,17 +372,7 @@ function doSearch(){
     });
     render(a,r);
 }
-function showAll(){
- stopScanner();
- let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+items.length+'</strong></div><div id="all"></div></div>';
- content(allHtml);
- let sortedItems=[...items].sort((a,b)=>{
-   const ta=Date.parse(a.updated||"")||0;
-   const tb=Date.parse(b.updated||"")||0;
-   return tb-ta;
- });
- render(sortedItems,document.getElementById("all"));
-}
+function showAll(){stopScanner();let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+items.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(items,document.getElementById("all"))}
 
 function render(a,r){
  if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
@@ -402,29 +408,29 @@ function renderLocations(){let e=document.getElementById("ll");if(!e)return;if(!
 function addLocation(){let a=document.getElementById("na").value.trim(),s=document.getElementById("ns").value.trim();if(!a&&!s){alert("请输入区域或存放位置");return}if(locations.some(x=>x.area===a&&x.shelf===s)){alert("这个位置已经存在");return}locations.push({id:Date.now().toString(),area:a,shelf:s});save();document.getElementById("na").value="";document.getElementById("ns").value="";renderLocations()}
 function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations()}}
 
-window.startScanner = startScanner;
-window.manualBarcode = manualBarcode;
-window.openNewProduct = openNewProduct;
-window.showSearch = showSearch;
-window.showAll = showAll;
-window.manageCategory = manageCategory;
-window.manageLocations = manageLocations;
-window.clearAllData = clearAllData;
-window.back = back;
-window.addMainCat = addMainCat;
-window.addSubCat = addSubCat;
-window.delMainCat = delMainCat;
-window.delSubCat = delSubCat;
-window.refreshSubSelect = refreshSubSelect;
-window.saveItem = saveItem;
-window.del = del;
-window.openEditById = openEditById;
-window.showItem = showItem;
-window.registerNewProduct = registerNewProduct;
-window.newResult = newResult;
-window.doSearch = doSearch;
-window.addLocation = addLocation;
-window.removeLocation = removeLocation;
+window.startScanner=startScanner;
+window.manualBarcode=manualBarcode;
+window.openNewProduct=openNewProduct;
+window.showSearch=showSearch;
+window.showAll=showAll;
+window.manageCategory=manageCategory;
+window.manageLocations=manageLocations;
+window.clearAllData=clearAllData;
+window.back=back;
+window.addMainCat=addMainCat;
+window.addSubCat=addSubCat;
+window.delMainCat=delMainCat;
+window.delSubCat=delSubCat;
+window.refreshSubSelect=refreshSubSelect;
+window.saveItem=saveItem;
+window.del=del;
+window.openEditById=openEditById;
+window.showItem=showItem;
+window.registerNewProduct=registerNewProduct;
+window.newResult=newResult;
+window.doSearch=doSearch;
+window.addLocation=addLocation;
+window.removeLocation=removeLocation;
 </script>
 </body>
 </html>
