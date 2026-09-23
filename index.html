@@ -212,7 +212,7 @@ function updateShelfOptions(){
  let areaEl=document.getElementById("area"),shelfEl=document.getElementById("shelf");
  if(!areaEl||!shelfEl)return;
  let area=areaEl.value,current=shelfEl.dataset.current||"";
- let shelves=[...new Set(locations.filter(q=>q.area===area&&q.shelf).map(q=>q.shelf))];
+ let shelves=[...new Set(locations.filter(q=>q.area===area&&q.shelf).map(q=>q.shelf))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
  let shelfHtml='<option value="">请选择货架 / 存放位置</option>';
  shelves.forEach(v=>{shelfHtml+='<option value="'+esc(v)+'" '+(v===current?"selected":"")+'>'+esc(v)+'</option>';});
  shelfEl.innerHTML=shelfHtml;
@@ -367,7 +367,7 @@ function doSearch(){
     });
     render(a,r);
 }
-function showAll(){stopScanner();let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+items.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(items,document.getElementById("all"))}
+function showAll(){stopScanner();items=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+items.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(items,document.getElementById("all"))}
 
 function render(a,r){
  if(!a.length){r.innerHTML='<div class="empty">没有找到商品</div>';return}
