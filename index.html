@@ -198,7 +198,16 @@ function refreshSubSelect(presetSubId){
         return;
     }
     let html='<option value="">--请选择小类--</option>';
-    mainObj.subs.forEach(s=>{html+='<option value="'+esc(s.id)+'" '+(s.id===presetSubId?"selected":"")+'>'+esc(s.name)+'</option>';});
+    let sortedSubs=[...mainObj.subs].sort((a,b)=>{
+        return String(a.name||"").localeCompare(
+            String(b.name||""),
+            "zh-CN",
+            {numeric:true,sensitivity:"base"}
+        );
+    });
+    sortedSubs.forEach(s=>{
+        html+='<option value="'+esc(s.id)+'" '+(s.id===presetSubId?"selected":"")+'>'+esc(s.name)+'</option>';
+    });
     subSel.innerHTML=html;
 }
 
