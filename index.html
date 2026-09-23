@@ -72,6 +72,8 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 <button onclick="showAll()">📋 全部商品</button>
 <button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
+<button onclick="exportAllData()">📤 导出全部数据</button>
+<button onclick="importAllData()">📥 导入数据</button>
 <button class="danger" onclick="clearAllData()">🗑 清除所有资料</button>
 </div>
 </div>
@@ -105,6 +107,60 @@ function save(){
 }
 function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
 function back(){stopScanner();content("")}
+
+function exportAllData(){
+    try{
+        const backup={
+            app:"电器位置查询",
+            version:"1.0",
+            exportDate:new Date().toISOString(),
+            items:items,
+            locations:locations,
+            categories:categories
+        };
+        const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        const d=new Date();
+        const pad=n=>String(n).padStart(2,"0");
+        const fileName="电器位置查询_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
+        a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+        alert("数据导出成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n\n文件："+fileName);
+    }catch(e){console.error(e);alert("导出失败，请重试。\n"+e.message);}
+}
+
+function importAllData(){
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept=".json,application/json";
+    input.onchange=()=>{
+        const file=input.files&&input.files[0];
+        if(!file)return;
+        const reader=new FileReader();
+        reader.onload=()=>{
+            try{
+                const data=JSON.parse(reader.result);
+                if(!data||typeof data!=="object"||!Array.isArray(data.items)||!Array.isArray(data.locations)||!Array.isArray(data.categories)){
+                    throw new Error("这不是有效的“电器位置查询”数据备份文件。");
+                }
+                const summary="准备导入：\n商品 " + data.items.length + " 条\n位置 " + data.locations.length + " 条\n分类 " + data.categories.length + " 个大类";
+                if(!confirm(summary+"\n\n导入后将替换当前设备中的全部资料。\n是否继续？"))return;
+                items=data.items;locations=data.locations;categories=data.categories;
+                save();
+                alert("导入成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类");
+                back();
+            }catch(e){
+                console.error(e);
+                alert("导入失败：\n"+(e.message||"文件格式不正确。")+"\n\n当前资料没有被修改。");
+            }
+        };
+        reader.onerror=()=>alert("读取文件失败，请重新选择文件。");
+        reader.readAsText(file,"utf-8");
+    };
+    input.click();
+}
+
 function loc(x){return x.area&&x.shelf?x.area+" → "+x.shelf:(x.area||x.shelf||x.location||"未设置")}
 function byCode(c){c=String(c||"").trim();return items.find(x=>String(x.code||"").trim()===c)}
 function openNewProduct(){try{form(null,"")}catch(e){console.error(e);alert("打开新增商品页面失败，请刷新页面后再试。")}}
@@ -371,7 +427,8 @@ function doSearch(){
     });
     render(a,r);
 }
-function showAll(){stopScanner();let sortedItems=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+sortedItems.length+'</strong></div><div id="all"></div></div>';content(allHtml);render(sortedItems,document.getElementById("all"))}
+function showAll(){stopScanner();let sortedItems=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+sortedItems.length+'</strong></div><div id="all" style="margin-top:12px"></div></div>';content(allHtml);render(sortedItems,document.getElementById("all"))}
+function render(a,r){if(!r)return;if(!a||!a.length){r.innerHTML='<div class="empty">没有商品</div>';return}r.innerHTML=a.map(x=>'<div class="item" onclick="showItem(\''+esc(x.id)+'\')"><div class="item-title">'+esc(x.name||"未命名商品")+'</div><div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+ '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+'</div></div>').join("")}
 
 function clearAllData(){
  const password=prompt("请输入清除资料密码：");
@@ -387,44 +444,56 @@ function clearAllData(){
 }
 function manageLocations(){
  stopScanner();
- let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">按照“大类 → 小类”的层级管理位置。选择大类后，小类只显示该大类下面的选项。</p><label>商品大类 / 区域</label><select id="na"><option value="">请选择大类 / 区域</option></select><label>商品小类 / 货架位置</label><select id="ns"><option value="">请选择小类 / 货架位置</option></select><button class="primary" style="width:100%;margin-top:9px" onclick="addLocation()">➕ 添加常用位置</button><div id="ll" style="margin-top:14px"></div></div>';
- content(h); populateLocationMainSelect(); renderLocations();
+ let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📍 位置管理</h2><p style="color:#666;font-size:14px">与“商品种类”一样，先建立区域，再在区域下面建立货架 / 存放位置。</p><label>新增区域</label><input id="locMainName" placeholder="例如：Basement / Garage / 客厅"><button class="primary" style="width:100%;margin-top:10px" onclick="addLocationMain()">➕ 添加区域</button><div style="margin-top:16px"><h4>已有位置（区域 → 货架 / 位置）</h4><div id="ll"></div></div></div>';
+ content(h);renderLocations();
 }
-function populateLocationMainSelect(){
- let e=document.getElementById("na"); if(!e)return;
- let mains=[...categories].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"zh-CN"));
- e.innerHTML='<option value="">请选择大类 / 区域</option>'+mains.map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join("");
- e.onchange=()=>populateLocationSubSelect(e.value);
+function addLocationMain(){
+ let name=document.getElementById("locMainName")?.value.trim();
+ if(!name){alert("请输入区域名称");return;}
+ if(locations.some(x=>x.area===name)){alert("这个区域已经存在");return;}
+ locations.push({id:Date.now().toString(),area:name,shelf:""});
+ save();document.getElementById("locMainName").value="";renderLocations();
 }
-function populateLocationSubSelect(mainName){
- let e=document.getElementById("ns"); if(!e)return;
- let main=categories.find(m=>m.name===mainName);
- let names=main?[...(main.subs||[])].map(x=>x.name):[];
- names.push(...locations.filter(x=>x.area===mainName&&x.shelf).map(x=>x.shelf));
- names=[...new Set(names)].sort((a,b)=>String(a).localeCompare(String(b),"zh-CN"));
- e.innerHTML='<option value="">请选择小类 / 货架位置</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+function addLocationSub(area){
+ let sh=prompt("输入“"+area+"”下面的货架 / 存放位置：");
+ if(sh===null)return; sh=sh.trim();
+ if(!sh){alert("位置名称不能为空");return;}
+ if(locations.some(x=>x.area===area&&x.shelf===sh)){alert("该区域下已经存在同名位置");return;}
+ locations.push({id:Date.now().toString(),area:area,shelf:sh});save();renderLocations();
+}
+function editLocationMain(area){
+ let n=prompt("修改区域名称：",area);if(n===null)return;n=n.trim();
+ if(!n){alert("区域名称不能为空");return;}
+ if(n!==area&&locations.some(x=>x.area===n)){alert("这个区域已经存在");return;}
+ locations.forEach(x=>x.area===area&&(x.area=n));save();renderLocations();
 }
 function editLocation(id){
- let x=locations.find(q=>q.id===id); if(!x)return;
- let a=prompt("修改大类 / 区域：",x.area||""); if(a===null)return; a=a.trim(); if(!a){alert("大类 / 区域不能为空");return;}
- let sh=prompt("修改小类 / 货架位置：",x.shelf||""); if(sh===null)return; sh=sh.trim(); if(!sh){alert("小类 / 货架位置不能为空");return;}
- if(locations.some(q=>q.id!==id&&q.area===a&&q.shelf===sh)){alert("这个位置已经存在");return;}
- x.area=a;x.shelf=sh;save();renderLocations();
+ let x=locations.find(q=>q.id===id);if(!x||!x.shelf)return;
+ let sh=prompt("修改货架 / 存放位置：",x.shelf);if(sh===null)return;sh=sh.trim();
+ if(!sh){alert("位置名称不能为空");return;}
+ if(locations.some(q=>q.id!==id&&q.area===x.area&&q.shelf===sh)){alert("该区域下已经存在同名位置");return;}
+ x.shelf=sh;save();renderLocations();
 }
 function renderLocations(){
- let e=document.getElementById("ll"); if(!e)return;
- if(!locations.length){e.innerHTML='<div class="empty">还没有常用位置</div>';return;}
- let a=[...locations].sort((x,y)=>{let c=String(x.area||"").localeCompare(String(y.area||""),"zh-CN");return c||String(x.shelf||"").localeCompare(String(y.shelf||""),"zh-CN")});
- e.innerHTML=a.map(x=>'<div class="item location-list"><div>📍 '+esc(x.area||"")+(x.area&&x.shelf?" → ":"")+esc(x.shelf||"")+'</div><div style="display:flex;gap:6px"><button class="small" onclick="editLocation(\''+esc(x.id)+'\')">修改</button><button class="danger small" onclick="removeLocation(\''+esc(x.id)+'\')">删除</button></div></div>').join("");
+ let e=document.getElementById("ll");if(!e)return;
+ if(!locations.length){e.innerHTML='<div class="empty">暂无位置，请先添加区域</div>';return;}
+ let areas=[...new Set(locations.map(x=>x.area).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"zh-CN"));
+ let out="";
+ for(let area of areas){
+   out+='<div class="cat-item"><div><b>📍 '+esc(area)+'</b> <button class="small" onclick="addLocationSub(\''+esc(area)+'\')">+增加位置</button><button class="small" onclick="editLocationMain(\''+esc(area)+'\')">修改</button><button class="small danger" onclick="removeLocationMain(\''+esc(area)+'\')">删除区域</button></div>';
+   let subs=locations.filter(x=>x.area===area&&x.shelf).sort((a,b)=>String(a.shelf).localeCompare(String(b.shelf),"zh-CN"));
+   if(!subs.length) out+='<div class="cat-sub">- 暂无下级位置</div>';
+   for(let x of subs) out+='<div class="cat-sub">- '+esc(x.shelf)+' <button class="small" onclick="editLocation(\''+esc(x.id)+'\')">修改</button><button class="small danger" onclick="removeLocation(\''+esc(x.id)+'\')">删除</button></div>';
+   out+='</div>';
+ }
+ e.innerHTML=out;
 }
-function addLocation(){
- let a=document.getElementById("na").value.trim(),sh=document.getElementById("ns").value.trim();
- if(!a||!sh){alert("请选择大类 / 区域以及小类 / 货架位置");return;}
- if(locations.some(x=>x.area===a&&x.shelf===sh)){alert("这个位置已经存在");return;}
- locations.push({id:Date.now().toString(),area:a,shelf:sh});save();
- document.getElementById("na").value=""; populateLocationSubSelect(""); renderLocations();
+function removeLocationMain(area){
+ if(!confirm("确定删除区域“"+area+"”及其下面的所有位置吗？"))return;
+ locations=locations.filter(x=>x.area!==area);save();renderLocations();
 }
-function removeLocation(id){if(confirm("确定删除这个常用位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations();}}
+function removeLocation(id){if(confirm("确定删除这个位置吗？")){locations=locations.filter(x=>x.id!==id);save();renderLocations();}}
+
 window.startScanner=startScanner;
 window.manualBarcode=manualBarcode;
 window.openNewProduct=openNewProduct;
@@ -432,6 +501,8 @@ window.showSearch=showSearch;
 window.showAll=showAll;
 window.manageCategory=manageCategory;
 window.manageLocations=manageLocations;
+window.exportAllData=exportAllData;
+window.importAllData=importAllData;
 window.clearAllData=clearAllData;
 window.back=back;
 window.addMainCat=addMainCat;
@@ -446,7 +517,10 @@ window.showItem=showItem;
 window.registerNewProduct=registerNewProduct;
 window.newResult=newResult;
 window.doSearch=doSearch;
-window.addLocation=addLocation;
+window.addLocationMain=addLocationMain;
+window.addLocationSub=addLocationSub;
+window.editLocationMain=editLocationMain;
+window.removeLocationMain=removeLocationMain;
 window.removeLocation=removeLocation;
 window.editLocation=editLocation;
 </script>
