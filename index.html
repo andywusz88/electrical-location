@@ -221,9 +221,14 @@ function renderCategoryList(){
 function form(x,code){
  stopScanner();
  let e=!!x;
- let a=x?.area||"";
- let s=x?.shelf||x?.location||"";
- if(!a && x?.location){let parts=String(x.location).split(" → ");a=parts[0]||"";s=parts.slice(1).join(" → ")||"";}
+ // 兼容新旧数据格式：优先使用 area/shelf；旧数据使用 location（区域 → 货架）
+ let a=String(x?.area||"").trim();
+ let s=String(x?.shelf||"").trim();
+ if(x?.location){
+     let parts=String(x.location).split(" → ");
+     if(!a)a=String(parts[0]||"").trim();
+     if(!s)s=String(parts.slice(1).join(" → ")||"").trim();
+ }
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
@@ -236,7 +241,7 @@ function form(x,code){
  formHtml+='</div>';
  content(formHtml);
  let shelfEl=document.getElementById("shelf");
- if(shelfEl)shelfEl.dataset.current=JSON.stringify(s);
+ if(shelfEl)shelfEl.dataset.current=s;
  updateShelfOptions();
  setTimeout(()=>{
     document.getElementById("mainCatSel").value=selMainId;
