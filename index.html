@@ -420,16 +420,22 @@ async function stopScanner(){
 }
 
 function manualBarcode(){let c=prompt("请输入条码 / QR Code：");if(c===null)return;c=c.trim();if(c){let x=byCode(c);x?scanResult(x):newResult(c)}}
-function showSearch(){stopScanner();let searchHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="可搜索：名称、品牌、型号、条码、颜色、位置、库存、分类…" oninput="doSearch()"><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>';content(searchHtml);setTimeout(()=>document.getElementById("search")?.focus(),100)}
+function showSearch(){stopScanner();let searchHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🔍 搜索商品</h2><input id="search" placeholder="可搜索：名称、品牌、型号、条码、颜色、位置、库存、分类…" oninput="doSearch()"><div id="searchCount" class="status" style="margin-top:10px">请输入关键词开始搜索</div><div id="results" style="margin-top:10px"><div class="empty">请输入关键词开始搜索</div></div></div>';content(searchHtml);setTimeout(()=>document.getElementById("search")?.focus(),100)}
 function doSearch(){
     let q=(document.getElementById("search")?.value||"").trim().toLowerCase();
     let r=document.getElementById("results");
+    let countEl=document.getElementById("searchCount");
     if(!r)return;
-    if(!q){r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';return;}
+    if(!q){
+        if(countEl)countEl.textContent="请输入关键词开始搜索";
+        r.innerHTML='<div class="empty">请输入关键词开始搜索</div>';
+        return;
+    }
     let a=items.filter(x=>{
         let catText=getCatText(x).toLowerCase();
         return [x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,String(x.stockQty||""),catText].join(" ").toLowerCase().includes(q);
     });
+    if(countEl)countEl.textContent="符合条件的商品：共 "+a.length+" 个";
     render(a,r);
 }
 function showAll(){stopScanner();let sortedItems=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+sortedItems.length+'</strong></div><div id="all" style="margin-top:12px"></div></div>';content(allHtml);render(sortedItems,document.getElementById("all"))}
