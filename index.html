@@ -110,7 +110,15 @@ function save(){
     localStorage.setItem(LK,JSON.stringify(locations));
     localStorage.setItem(CK,JSON.stringify(categories));
 }
-function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
+function content(h){
+  const el=document.getElementById("content");
+  el.innerHTML=h;
+  requestAnimationFrame(()=>{
+    const header=document.querySelector("header");
+    const offset=(header?header.offsetHeight:0)+8;
+    window.scrollTo({top:Math.max(0,el.offsetTop-offset),behavior:"smooth"});
+  });
+}
 function back(){stopScanner();content("")}
 
 function clearAllData(){
