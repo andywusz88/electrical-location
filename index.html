@@ -357,8 +357,13 @@ function del(id){
     }
 }
 function openEditById(itemId){
-  const item = items.find(q=>q.id===itemId);
-  if(item){form(item);}
+  const normalizedId=String(itemId??"");
+  const item=items.find(q=>String(q.id??"")===normalizedId);
+  if(!item){
+    alert("找不到这个商品，可能资料已经被删除或ID无效。");
+    return;
+  }
+  form(item);
 }
 function getCatText(item){
     if(!item.mainCatId) return "未分类";
@@ -462,7 +467,9 @@ function render(a,r){
           '<div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+
           '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+
           '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+
-          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div></div>';
+          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div>'+
+          '<button type="button" class="primary small" style="width:100%;margin-top:10px" onclick="event.stopPropagation();openEditById(\\\''+esc(x.id)+'\\\')">✏️ 编辑商品</button>'+
+          '</div>';
     }).join("");
 }
 function manageLocations(){
