@@ -113,6 +113,24 @@ function save(){
 function content(h){document.getElementById("content").innerHTML=h;scrollTo(0,0)}
 function back(){stopScanner();content("")}
 
+function clearAllData(){
+    const pwd=prompt("请输入清除所有资料的密码：");
+    if(pwd===null)return;
+    if(pwd!=="888"){
+        alert("密码错误，资料未清除。");
+        return;
+    }
+    if(!confirm("确定要清除全部资料吗？\n\n这将删除所有商品、位置和商品分类，且无法恢复。"))return;
+    items=[];
+    locations=[];
+    categories=[];
+    localStorage.removeItem(IK);
+    localStorage.removeItem(LK);
+    localStorage.removeItem(CK);
+    alert("全部资料已清除。");
+    back();
+}
+
 function exportAllData(){
     try{
         const backup={
