@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V2.2｜小类名称排序修复</title>
+<title>📦 电器位置查询 V2.3｜商品列表与扫描优化</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -53,17 +53,22 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .update-time{font-size:12px;color:#888;margin-top:4px;}
 .cat-item{border:1px solid #ddd;padding:12px;border-radius:10px;margin:8px 0;}
 .cat-sub{margin-left:14px;margin-top:6px;color:#444}
+
+.home-map-wrap{width:100%;margin:0 0 14px;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.home-map{display:block;width:100%;height:auto;max-width:100%;object-fit:contain}
+
 @media (max-width:400px){
   .item-title{font-size:16px}
   .meta{font-size:13px}
   .grid button{font-size:15px;padding:12px 6px}
 }
-</style>
+.scan-compact{padding:10px}.scan-compact .back{margin-bottom:6px}.scan-compact .status{margin-top:6px}</style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V2.2｜修复小类下拉中文排序</div></header>
+<header><h1>📦 电器位置查询</h1><div class="sub">V2.3｜商品列表与扫描优化</div></header>
 <div class="container">
-<div id="home" class="card">
+<div class="home-map-wrap"><img src="map.png" alt="电器位置查询" class="home-map"></div>
+ <div id="home" class="card">
  <div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
 <button onclick="manualBarcode()">⌨️ 输入条码</button>
@@ -372,39 +377,17 @@ function handleScannedCode(code){
 }
 
 async function startScanner(){
- stopScanner();
- let scanHtml='<div class="card"><button class="small back" onclick="back()">← 取消扫描</button><h2>📷 扫描商品</h2><div class="scan-tip">✅允许相机权限<br>📌把<strong>横向一维条码</strong>放进中间长方形框内<br>📏距离15‑30厘米，不要贴镜头！<br>💡避开反光；iOS网页无法控制自动对焦</div><div id="videoWrap"><video id="previewVideo" playsinline muted autoplay></video><div class="scan-overlay"><div class="left"></div><div class="right"></div><div class="scan-cutout"></div></div></div><div id="scanStatus" class="status">正在启动后置摄像头…</div></div>';
- content(scanHtml);
- const st=document.getElementById("scanStatus");
- const videoEl=document.getElementById("previewVideo");
- if(!videoEl){return;}
- try{
-  mediaStream=await navigator.mediaDevices.getUserMedia({
-   video:{
-    facingMode:{ideal:"environment"},
-    width:{ideal:1280},
-    height:{ideal:720}
-   }
-  });
-  videoEl.srcObject=mediaStream;
-  await videoEl.play();
-  scanning=true;
-  st.textContent="✅后置已启动，请对准条码";
-  codeReader=new ZXing.BrowserMultiFormatReader();
-  codeReader.decodeFromVideoDevice(null, "previewVideo", (result,err)=>{
-   if(!scanning) return;
-   if(result){
-    scanning=false;
-    handleScannedCode(result.text);
-   }
-  },{
-   delayBetweenScanAttempts:220
-  });
- }catch(err){
-  console.error(err);
-  st.textContent="⚠️摄像头启动失败，请使用【⌨️输入条码】录入";
   stopScanner();
- }
+  let scanHtml='<div class="card scan-compact"><button class="small back" onclick="back()">← 取消扫描</button><div id="videoWrap"><video id="previewVideo" playsinline muted autoplay></video><div class="scan-overlay"><div class="left"></div><div class="right"></div><div class="scan-cutout"></div></div></div><div id="scanStatus" class="status">正在启动后置摄像头…</div></div>';
+  content(scanHtml);
+  const st=document.getElementById("scanStatus"),videoEl=document.getElementById("previewVideo");
+  if(!videoEl)return;
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}});
+    videoEl.srcObject=mediaStream; await videoEl.play(); scanning=true; st.textContent="✅ 后置已启动，请对准条码";
+    codeReader=new ZXing.BrowserMultiFormatReader();
+    codeReader.decodeFromVideoDevice(null,"previewVideo",(result,err)=>{if(!scanning)return;if(result){scanning=false;handleScannedCode(result.text)}},{delayBetweenScanAttempts:220});
+  }catch(err){console.error(err);st.textContent="⚠️ 摄像头启动失败，请使用【⌨️ 输入条码】录入";stopScanner()}
 }
 
 async function stopScanner(){
@@ -439,19 +422,22 @@ function doSearch(){
     render(a,r);
 }
 function showAll(){stopScanner();let sortedItems=[...items].sort((a,b)=>new Date(b.updated||0)-new Date(a.updated||0));let allHtml='<div class="card"><button class="small back" onclick="back()">← 返回</button><div class="stat"><span>商品数量</span><strong>'+sortedItems.length+'</strong></div><div id="all" style="margin-top:12px"></div></div>';content(allHtml);render(sortedItems,document.getElementById("all"))}
-function render(a,r){if(!r)return;if(!a||!a.length){r.innerHTML='<div class="empty">没有商品</div>';return}r.innerHTML=a.map(x=>'<div class="item" onclick="showItem(\''+esc(x.id)+'\')"><div class="item-title">'+esc(x.name||"未命名商品")+'</div><div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+ '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+'</div></div>').join("")}
-
-function clearAllData(){
- const password=prompt("请输入清除资料密码：");
- if(password===null)return;
- if(password!=="888"){alert("密码错误，资料未清除。");return}
- if(!confirm("确定要清除所有商品、位置、分类资料吗？此操作无法撤销！"))return;
- items=[];locations=[];categories=[];
- localStorage.removeItem(IK);
- localStorage.removeItem(LK);
- localStorage.removeItem(CK);
- alert("所有资料已清除。");
- back();
+function render(a,r){
+    if(!r)return;
+    if(!a||!a.length){r.innerHTML='<div class="empty">没有商品</div>';return}
+    r.innerHTML=a.map(x=>{
+        const qtyRaw=String(x.stockQty??"").trim();
+        const qtyNum=Number(qtyRaw);
+        const hasQty=qtyRaw!=="" && Number.isFinite(qtyNum) && qtyNum>0;
+        const qtyColor=hasQty?"#222":"#c62828";
+        const qtyText=qtyRaw===""?"未填写":esc(qtyRaw);
+        return '<div class="item" onclick="showItem(\\\''+esc(x.id)+'\\\')">'+
+          '<div class="item-title">'+esc(x.name||"未命名商品")+'</div>'+
+          '<div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+
+          '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+
+          '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+
+          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div></div>';
+    }).join("");
 }
 function manageLocations(){
  stopScanner();
