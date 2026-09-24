@@ -462,14 +462,11 @@ function render(a,r){
         const hasQty=qtyRaw!=="" && Number.isFinite(qtyNum) && qtyNum>0;
         const qtyColor=hasQty?"#222":"#c62828";
         const qtyText=qtyRaw===""?"未填写":esc(qtyRaw);
-        return '<div class="item" onclick="showItem(\\\''+esc(x.id)+'\\\')">'+
+        return '<div class="item" role="button" tabindex="0" style="cursor:pointer" onclick="openEditById(\\\''+esc(x.id)+'\\\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openEditById(\\\''+esc(x.id)+'\\\')}">'+
           '<div class="item-title">'+esc(x.name||"未命名商品")+'</div>'+
           '<div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+
           '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+
-          '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+
-          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div>'+
-          '<button type="button" class="primary small" style="width:100%;margin-top:10px" onclick="event.stopPropagation();openEditById(\\\''+esc(x.id)+'\\\')">✏️ 编辑商品</button>'+
-          '</div>';
+          '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div>'+          '</div>';
     }).join("");
 }
 function manageLocations(){
