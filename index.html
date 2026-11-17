@@ -166,13 +166,22 @@ function exportAllData(){
     try{
         const backup={
             app:"电器管理",
-            version:"3.0",
+            version:"3.4",
+            backupType:"full-system",
             exportDate:new Date().toISOString(),
-            items:catalogItems(),
+            items:items,
             locations:locations,
             categories:categories,
             receipts:receipts,
-            displayData:displayData
+            displayData:displayData,
+            // 原始本地存储快照：完整保留系统当前所有业务数据，避免过滤导致记录遗漏。
+            storageSnapshot:{
+                [IK]:localStorage.getItem(IK),
+                [LK]:localStorage.getItem(LK),
+                [CK]:localStorage.getItem(CK),
+                [RK]:localStorage.getItem(RK),
+                [DK]:localStorage.getItem(DK)
+            }
         };
         const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
         const url=URL.createObjectURL(blob);
@@ -182,7 +191,7 @@ function exportAllData(){
         const fileName="电器管理_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
         a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),1000);
-        alert("数据导出成功！\n\n商品："+catalogItems().length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条\n展柜盘点："+displayData.sessions.length+" 次\n\n文件："+fileName);
+        alert("数据导出成功！\n\n商品主档："+catalogItems().length+" 条\n原始商品记录："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条\n展柜盘点："+displayData.sessions.length+" 次\n展示商品排序及配件标识：已包含\n完整本地数据快照：已包含\n\n文件："+fileName);
     }catch(e){console.error(e);alert("导出失败，请重试。\n"+e.message);}
 }
 
@@ -200,6 +209,7 @@ function importAllData(){
                 if(!data||typeof data!=="object"||!Array.isArray(data.items)||!Array.isArray(data.locations)||!Array.isArray(data.categories)){
                     throw new Error("这不是有效的“电器管理”数据备份文件。");
                 }
+                if(data.displayData!==undefined&&(!data.displayData||typeof data.displayData!=="object"||!Array.isArray(data.displayData.sessions)))throw new Error("备份文件中的展柜盘点格式不正确。");
                 if(data.receipts!==undefined&&!Array.isArray(data.receipts))throw new Error("备份文件中的收货记录格式不正确。");
                 const incomingReceipts=Array.isArray(data.receipts)?data.receipts:[];
                 const incomingDisplay=data.displayData&&Array.isArray(data.displayData.sessions)?data.displayData:{sessions:[],activeId:null};
