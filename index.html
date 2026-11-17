@@ -19,7 +19,7 @@ button{border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:
 button.primary{background:#111;color:#fff}
 button.danger{background:#fff0f0;color:#c62828}
 button.small{min-height:40px;padding:9px 12px;font-size:14px}
-input,select{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
+input,select,textarea{width:100%;padding:13px;border:1px solid #ddd;border-radius:11px;font-size:16px;background:#fff}
 label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .back{margin-bottom:10px}
 .item{border:1px solid #eee;border-radius:13px;padding:14px;margin:9px 0}
@@ -578,7 +578,7 @@ function openReceiving(){
  stopScanner();
  let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📥 收货</h2><label>收货日期 *</label><input type="date" id="receiveDate" value="'+todayLocal()+'"><label>条码 / QR Code</label><input id="receiveCode" placeholder="可输入条码" oninput="fillReceiveByCode()"><label>SKU码</label><input id="receiveSku" placeholder="请输入 SKU 码" oninput="fillReceiveBySku()"><label>商品名称 *</label><input id="receiveName" placeholder="例如 Dyson V15"><label>品牌</label><input id="receiveBrand"><label>型号</label><input id="receiveModel"><label>颜色</label><input id="receiveColor"><label>收货数量 *</label><input id="receiveQty" type="number" min="1" step="1" inputmode="numeric" placeholder="例如 5"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>h+='<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>');
- h+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><button class="primary" style="width:100%;margin-top:18px" onclick="saveReceiving()">💾 保存收货</button><div class="status">收货记录独立保存，不自动新增商品，也不修改商品库存。</div></div>';
+ h+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><label>备注</label><textarea id="receiveNote" rows="3" placeholder="可填写收货备注"></textarea><button class="primary" style="width:100%;margin-top:18px" onclick="saveReceiving()">💾 保存收货</button><div class="status">收货记录独立保存，不自动新增商品，也不修改商品库存。</div></div>';
  content(h);
 }
 function fillReceiveByCode(){
@@ -604,7 +604,8 @@ function saveReceiving(){
  if(!Number.isSafeInteger(qty)||qty<=0){alert('收货数量必须为大于0的整数');return}
  const brand=val('receiveBrand'),model=val('receiveModel'),color=val('receiveColor'),mainCatId=val('mainCatSel'),subCatId=val('subCatSel');
  const id=Date.now().toString()+'_'+Math.random().toString(36).slice(2,8);
- const r={id,date,code,sku,name,brand,model,color,qty,mainCatId,subCatId,created:new Date().toISOString()};
+ const note=val('receiveNote');
+ const r={id,date,code,sku,name,brand,model,color,qty,note,mainCatId,subCatId,created:new Date().toISOString()};
  // 收货仅写入独立的 receipts 表，不写入商品主档 items。
  receipts.push(r);save();
  if(confirm('收货保存成功！\n是否继续登记下一件商品？'))openReceiving();else showReceipts(date);
@@ -629,7 +630,7 @@ function renderReceipts(){
  for(const r of rows){
   const cat=receiptCategory(r);
   if(cat!==last){h+='<h3 style="font-size:16px;margin:18px 0 8px">'+esc(cat)+'</h3>';last=cat}
-  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+(r.sku?'<br>SKU码：'+esc(r.sku):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b></div><button class="small" style="margin-top:8px" data-receipt-edit="'+esc(r.id)+'">✏️ 修改记录</button></div>';
+  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+(r.sku?'<br>SKU码：'+esc(r.sku):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b>'+(r.note?'<br>备注：'+esc(r.note):'')+'</div><button class="small" style="margin-top:8px" data-receipt-edit="'+esc(r.id)+'">✏️ 修改记录</button></div>';
  }
  h+='<button class="primary" style="width:100%;margin-top:16px" onclick="exportReceiptPDF()">📄 导出 PDF</button>';
  el.innerHTML=h;
@@ -641,6 +642,7 @@ function editReceipt(id){
  let h='<div class="card"><button class="small back" id="returnReceiptList">← 返回收货收据</button><h2>✏️ 修改收货记录</h2>';
  const fields=[['date','收货日期','date'],['code','条码 / QR Code','text'],['sku','SKU码','text'],['name','商品名称 *','text'],['brand','品牌','text'],['model','型号','text'],['color','颜色','text'],['qty','收货数量 *','number']];
  for(const [key,label,type] of fields)h+='<label>'+label+'</label><input id="editR_'+key+'" type="'+type+'" '+(key==='qty'?'min="1" step="1" ':'')+'value="'+esc(r[key]??'')+'">';
+ h+='<label>备注</label><textarea id="editR_note" rows="3">'+esc(r.note||'')+'</textarea>';
  h+='<label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>h+='<option value="'+esc(m.id)+'" '+(m.id===r.mainCatId?'selected':'')+'>'+esc(m.name)+'</option>');
  h+='</select><label>商品小类</label><select id="subCatSel"></select><button class="primary" style="width:100%;margin-top:16px" id="saveReceiptEdit">💾 保存修改</button><div class="status">仅修改收货记录，不影响商品主档、库存或其他收货记录。</div></div>';
@@ -655,7 +657,7 @@ function saveReceiptEdit(id){
  if(!name){alert('请输入商品名称');return}
  if(!Number.isSafeInteger(qty)||qty<=0){alert('收货数量必须是大于0的整数');return}
  // 修改收货记录只影响收货数据，不修改商品主档或库存。
- for(const key of ['date','code','sku','name','brand','model','color'])r[key]=val(key);
+ for(const key of ['date','code','sku','name','brand','model','color','note'])r[key]=val(key);
  r.qty=qty;r.mainCatId=document.getElementById('mainCatSel').value;r.subCatId=document.getElementById('subCatSel').value;r.modified=new Date().toISOString();
  save();alert('收货记录已修改并保存');showReceipts(date);
 }
@@ -683,10 +685,10 @@ function exportReceiptPDF(){
  const mainName=r=>categories.find(c=>String(c.id)===String(r.mainCatId))?.name||'未分类';
  const ordered=[...rows].sort((a,b)=>mainName(a).localeCompare(mainName(b),'zh-CN')||String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
  const groups=new Map();for(const r of ordered){const k=mainName(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
- let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
- for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
+ let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th><th>备注</th></tr></thead><tbody>';
+ for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td><td>'+esc(r.note||'')+'</td></tr>';
  body+='</tbody></table>'}
- const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:8mm 9mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:9px;line-height:1.15}h1{text-align:center;font-size:16px;margin:0 0 3px}h2{font-size:10px;margin:7px 0 2px;break-after:avoid}p{text-align:center;margin:0 0 5px}table{border-collapse:collapse;width:100%;margin:2px 0 6px;table-layout:fixed}th,td{border:1px solid #aaa;padding:3px 4px;text-align:left;word-break:break-word;vertical-align:top}th{background:#eee}th:nth-child(1){width:25%}th:nth-child(2){width:19%}th:nth-child(3){width:17%}th:nth-child(4){width:32%}th:nth-child(5){width:7%}.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
+ const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:8mm 9mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:9px;line-height:1.15}h1{text-align:center;font-size:16px;margin:0 0 3px}h2{font-size:10px;margin:7px 0 2px;break-after:avoid}p{text-align:center;margin:0 0 5px}table{border-collapse:collapse;width:100%;margin:2px 0 6px;table-layout:fixed}th,td{border:1px solid #aaa;padding:3px 4px;text-align:left;word-break:break-word;vertical-align:top}th{background:#eee}th:nth-child(1){width:21%}th:nth-child(2){width:17%}th:nth-child(3){width:14%}th:nth-child(4){width:26%}th:nth-child(5){width:6%}th:nth-child(6){width:16%}.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
  const win=window.open('','_blank');if(!win){alert('浏览器阻止了弹出窗口，请允许弹窗后重试。');return}
  win.document.open();win.document.write(html);win.document.close();
 }
