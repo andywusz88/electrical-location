@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>电器管理 V2.6｜收货记录管理</title>
+<title>电器管理 V2.7｜收货备份与紧凑收据</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -65,7 +65,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .scan-compact{padding:10px}.scan-compact .back{margin-bottom:6px}.scan-compact .status{margin-top:6px}</style>
 </head>
 <body>
-<header><h1>电器管理</h1><div class="sub">V2.6｜收货记录管理</div></header>
+<header><h1>电器管理</h1><div class="sub">V2.7｜收货备份与紧凑收据</div></header>
 <div class="container">
 <div class="home-map-wrap"><img src="map.png" alt="电器管理" class="home-map"></div>
  <div id="home" class="card">
@@ -76,12 +76,12 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 <button onclick="showSearch()">🔍 搜索商品</button>
 <button onclick="openReceiving()">📥 收货</button>
 <button onclick="showReceipts()">🧾 导出收货收据</button>
-<button class="danger" onclick="openClearReceipts()">🗑 清除收货数据</button>
 <button onclick="showAll()">📋 全部商品</button>
 <button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
 <button onclick="exportAllData()">📤 导出全部数据</button>
 <button onclick="importAllData()">📥 导入数据</button>
+<button class="danger" onclick="openClearReceipts()">🗑 清除收货数据</button>
 <button class="danger" onclick="clearAllData()">🗑 清除所有资料</button>
 </div>
 </div>
@@ -151,7 +151,7 @@ function exportAllData(){
     try{
         const backup={
             app:"电器管理",
-            version:"1.0",
+            version:"2.7",
             exportDate:new Date().toISOString(),
             items:items,
             locations:locations,
@@ -166,7 +166,7 @@ function exportAllData(){
         const fileName="电器管理_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
         a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),1000);
-        alert("数据导出成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n\n文件："+fileName);
+        alert("数据导出成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条\n\n文件："+fileName);
     }catch(e){console.error(e);alert("导出失败，请重试。\n"+e.message);}
 }
 
@@ -184,11 +184,13 @@ function importAllData(){
                 if(!data||typeof data!=="object"||!Array.isArray(data.items)||!Array.isArray(data.locations)||!Array.isArray(data.categories)){
                     throw new Error("这不是有效的“电器管理”数据备份文件。");
                 }
-                const summary="准备导入：\n商品 " + data.items.length + " 条\n位置 " + data.locations.length + " 条\n分类 " + data.categories.length + " 个大类";
+                if(data.receipts!==undefined&&!Array.isArray(data.receipts))throw new Error("备份文件中的收货记录格式不正确。");
+                const incomingReceipts=Array.isArray(data.receipts)?data.receipts:[];
+                const summary="准备导入：\n商品 " + data.items.length + " 条\n位置 " + data.locations.length + " 条\n分类 " + data.categories.length + " 个大类\n收货记录 " + incomingReceipts.length + " 条"+(data.receipts===undefined?"\n⚠️ 旧版备份不含收货记录，导入后当前收货记录将被清空。":"");
                 if(!confirm(summary+"\n\n导入后将替换当前设备中的全部资料。\n是否继续？"))return;
-                items=data.items;locations=data.locations;categories=data.categories;receipts=Array.isArray(data.receipts)?data.receipts:[];
+                items=data.items;locations=data.locations;categories=data.categories;receipts=incomingReceipts;
                 save();
-                alert("导入成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类");
+                alert("导入成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条");
                 back();
             }catch(e){
                 console.error(e);
@@ -673,7 +675,7 @@ function exportReceiptPDF(){
  let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
  for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
  body+='</tbody></table>'}
- const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:16mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:12px}h1{text-align:center;font-size:22px}h2{font-size:15px;margin-top:22px;break-after:avoid}p{text-align:center}table{border-collapse:collapse;width:100%;margin:8px 0 16px}th,td{border:1px solid #aaa;padding:7px;text-align:left;word-break:break-word}th{background:#eee}.num{text-align:right}tfoot{font-weight:bold}tr{break-inside:avoid}.total{font-size:16px;text-align:right;margin-top:20px}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
+ const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:8mm 9mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:9px;line-height:1.15}h1{text-align:center;font-size:16px;margin:0 0 3px}h2{font-size:10px;margin:7px 0 2px;break-after:avoid}p{text-align:center;margin:0 0 5px}table{border-collapse:collapse;width:100%;margin:2px 0 6px;table-layout:fixed}th,td{border:1px solid #aaa;padding:3px 4px;text-align:left;word-break:break-word;vertical-align:top}th{background:#eee}th:nth-child(1){width:25%}th:nth-child(2){width:19%}th:nth-child(3){width:17%}th:nth-child(4){width:32%}th:nth-child(5){width:7%}.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
  const win=window.open('','_blank');if(!win){alert('浏览器阻止了弹出窗口，请允许弹窗后重试。');return}
  win.document.open();win.document.write(html);win.document.close();
 }
