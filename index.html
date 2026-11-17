@@ -743,8 +743,30 @@ function editAccessoryMark(id){
 function openDisplayHistory(){
  let h='<div class="card"><button class="small back" onclick="openDisplayCheck()">← 返回检查展柜</button><h2>📋 展柜盘点历史</h2>';
  if(!displayData.sessions.length)h+='<div class="empty">暂无盘点记录</div>';
- displayData.sessions.forEach(s=>{const values=Object.values(s.results||{}),miss=values.filter(x=>x.status==='no').length;h+='<div class="item"><b>'+esc(new Date(s.startedAt).toLocaleString())+'</b><div class="meta">'+(s.finishedAt?'已结束':'进行中')+' · 已检查 '+values.length+' · 缺货 '+miss+'</div><button class="small" data-display-session="'+esc(s.id)+'">查看详情</button></div>'});
- h+='</div>';content(h);document.querySelectorAll('[data-display-session]').forEach(el=>el.onclick=()=>showDisplayHistory(el.dataset.displaySession));
+ displayData.sessions.forEach(s=>{
+  const values=Object.values(s.results||{}),miss=values.filter(x=>x.status==='no').length;
+  h+='<div class="item" style="position:relative"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="flex:1;min-width:0"><b>'+esc(new Date(s.startedAt).toLocaleString())+'</b><div class="meta">'+(s.finishedAt?'已结束':'进行中')+' · 已检查 '+values.length+' · 缺货 '+miss+'</div></div><button class="small" type="button" aria-label="更多操作" aria-expanded="false" data-history-more="'+esc(s.id)+'" style="min-width:42px;padding:6px 10px">⋯</button></div><div data-history-menu="'+esc(s.id)+'" hidden style="text-align:right;margin:7px 0"><button class="small danger" type="button" data-history-delete="'+esc(s.id)+'">🗑 删除这条记录</button></div><button class="small" type="button" data-display-session="'+esc(s.id)+'">查看详情</button></div>';
+ });
+ h+='</div>';content(h);
+ document.querySelectorAll('[data-display-session]').forEach(el=>el.onclick=()=>showDisplayHistory(el.dataset.displaySession));
+ document.querySelectorAll('[data-history-more]').forEach(el=>el.onclick=()=>{
+  const menu=[...document.querySelectorAll('[data-history-menu]')].find(x=>x.dataset.historyMenu===el.dataset.historyMore);
+  if(!menu)return;
+  const shouldShow=menu.hidden;
+  document.querySelectorAll('[data-history-menu]').forEach(x=>x.hidden=true);
+  document.querySelectorAll('[data-history-more]').forEach(x=>x.setAttribute('aria-expanded','false'));
+  menu.hidden=!shouldShow;el.setAttribute('aria-expanded',String(shouldShow));
+ });
+ document.querySelectorAll('[data-history-delete]').forEach(el=>el.onclick=()=>deleteDisplayHistory(el.dataset.historyDelete));
+}
+function deleteDisplayHistory(id){
+ const s=displayData.sessions.find(x=>String(x.id)===String(id));
+ if(!s){alert('这条盘点记录不存在或已被删除。');openDisplayHistory();return;}
+ const when=new Date(s.startedAt).toLocaleString();
+ if(!confirm('确定删除 '+when+' 的展柜盘点记录吗？\n\n删除后无法撤销。此操作不会删除商品资料或收货记录。'))return;
+ displayData.sessions=displayData.sessions.filter(x=>String(x.id)!==String(id));
+ if(String(displayData.activeId)===String(id))displayData.activeId=null;
+ save();openDisplayHistory();
 }
 function showDisplayHistory(id){
  const s=displayData.sessions.find(x=>x.id===id);if(!s)return openDisplayHistory();
@@ -752,7 +774,7 @@ function showDisplayHistory(id){
  (s.snapshot||[]).forEach((p,i)=>{const r=s.results?.[p.id];h+='<div class="item"><b>'+(i+1)+'. '+esc(p.name)+'</b><div class="meta">SKU：'+esc(p.sku||'-')+' · '+esc([p.area,p.shelf].filter(Boolean).join(' → ')||'未设置')+'</div><b style="color:'+(r?.status==='no'?'#c62828':'#222')+'">'+(r?.status==='yes'?'✓ 有货':r?.status==='no'?'✕ 缺货':'○ 未检查')+'</b></div>'});
  h+='</div>';content(h);
 }
-window.openDisplayCheck=openDisplayCheck;window.createDisplaySession=createDisplaySession;window.toggleDisplaySort=toggleDisplaySort;window.moveDisplayItem=moveDisplayItem;window.setDisplayCheck=setDisplayCheck;window.finishDisplayCheck=finishDisplayCheck;window.openDisplayHistory=openDisplayHistory;window.displayDragStart=displayDragStart;window.displayDrop=displayDrop;
+window.openDisplayCheck=openDisplayCheck;window.createDisplaySession=createDisplaySession;window.toggleDisplaySort=toggleDisplaySort;window.moveDisplayItem=moveDisplayItem;window.setDisplayCheck=setDisplayCheck;window.finishDisplayCheck=finishDisplayCheck;window.openDisplayHistory=openDisplayHistory;window.deleteDisplayHistory=deleteDisplayHistory;window.displayDragStart=displayDragStart;window.displayDrop=displayDrop;
 
 window.fillReceiveBySku=fillReceiveBySku;
 window.openClearReceipts=openClearReceipts;
