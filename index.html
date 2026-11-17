@@ -651,7 +651,10 @@ function clearReceiptsForDate(){
 function exportReceiptPDF(){
  const date=document.getElementById('receiptDate')?.value,rows=selectedReceipts(date);
  if(!rows.length){alert('当天没有收货');return}
- const groups=new Map();for(const r of rows){const k=receiptCategory(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
+ // PDF 按商品大类、商品名称（中文拼音顺序）排序，不按小类分组。
+ const mainName=r=>categories.find(c=>String(c.id)===String(r.mainCatId))?.name||'未分类';
+ const ordered=[...rows].sort((a,b)=>mainName(a).localeCompare(mainName(b),'zh-CN')||String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
+ const groups=new Map();for(const r of ordered){const k=mainName(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
  let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
  for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
  body+='</tbody></table>'}
