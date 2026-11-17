@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>电器管理 V2.5｜SKU 管理与收货</title>
+<title>电器管理 V2.6｜收货记录管理</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -65,7 +65,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .scan-compact{padding:10px}.scan-compact .back{margin-bottom:6px}.scan-compact .status{margin-top:6px}</style>
 </head>
 <body>
-<header><h1>电器管理</h1><div class="sub">V2.5｜SKU 管理与收货</div></header>
+<header><h1>电器管理</h1><div class="sub">V2.6｜收货记录管理</div></header>
 <div class="container">
 <div class="home-map-wrap"><img src="map.png" alt="电器管理" class="home-map"></div>
  <div id="home" class="card">
@@ -76,6 +76,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 <button onclick="showSearch()">🔍 搜索商品</button>
 <button onclick="openReceiving()">📥 收货</button>
 <button onclick="showReceipts()">🧾 导出收货收据</button>
+<button class="danger" onclick="openClearReceipts()">🗑 清除收货数据</button>
 <button onclick="showAll()">📋 全部商品</button>
 <button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
@@ -602,17 +603,68 @@ function showReceipts(date){
 function renderReceipts(){
  const date=document.getElementById('receiptDate')?.value,el=document.getElementById('receiptList');if(!el)return;
  const rows=selectedReceipts(date);
- if(!rows.length){el.innerHTML='<div class="empty">当天没有收货</div>';return}
+ if(!rows.length){el.innerHTML='<div class="empty">当天没有收货数据</div>';return}
  let h='<div class="stat" style="margin-top:14px"><span>共 '+rows.length+' 条记录</span><strong>总数量：'+rows.reduce((n,r)=>n+Number(r.qty||0),0)+'</strong></div>';
- let last=null,subtotal=0;
+ let last=null;
  for(const r of rows){
   const cat=receiptCategory(r);
-  if(cat!==last){if(last!==null)h+='<div class="meta" style="text-align:right">小类合计：<b>'+subtotal+'</b></div>';h+='<h3 style="font-size:16px;margin:18px 0 8px">'+esc(cat)+'</h3>';last=cat;subtotal=0}
-  subtotal+=Number(r.qty||0);
-  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+(r.sku?'<br>SKU码：'+esc(r.sku):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b></div></div>';
+  if(cat!==last){h+='<h3 style="font-size:16px;margin:18px 0 8px">'+esc(cat)+'</h3>';last=cat}
+  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+(r.sku?'<br>SKU码：'+esc(r.sku):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b></div><button class="small" style="margin-top:8px" data-receipt-edit="'+esc(r.id)+'">✏️ 修改记录</button></div>';
  }
- h+='<div class="meta" style="text-align:right">小类合计：<b>'+subtotal+'</b></div><button class="primary" style="width:100%;margin-top:16px" onclick="exportReceiptPDF()">📄 导出 PDF</button>';
+ h+='<button class="primary" style="width:100%;margin-top:16px" onclick="exportReceiptPDF()">📄 导出 PDF</button>';
  el.innerHTML=h;
+ el.querySelectorAll('[data-receipt-edit]').forEach(btn=>btn.addEventListener('click',()=>editReceipt(btn.dataset.receiptEdit)));
+}
+function editReceipt(id){
+ const r=receipts.find(x=>String(x.id)===String(id));if(!r){alert('记录不存在');return}
+ const date=document.getElementById('receiptDate')?.value||r.date;
+ let h='<div class="card"><button class="small back" id="returnReceiptList">← 返回收货收据</button><h2>✏️ 修改收货记录</h2>';
+ const fields=[['date','收货日期','date'],['code','条码 / QR Code','text'],['sku','SKU码','text'],['name','商品名称 *','text'],['brand','品牌','text'],['model','型号','text'],['color','颜色','text'],['qty','收货数量 *','number']];
+ for(const [key,label,type] of fields)h+='<label>'+label+'</label><input id="editR_'+key+'" type="'+type+'" '+(key==='qty'?'min="1" step="1" ':'')+'value="'+esc(r[key]??'')+'">';
+ h+='<label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ categories.forEach(m=>h+='<option value="'+esc(m.id)+'" '+(m.id===r.mainCatId?'selected':'')+'>'+esc(m.name)+'</option>');
+ h+='</select><label>商品小类</label><select id="subCatSel"></select><button class="primary" style="width:100%;margin-top:16px" id="saveReceiptEdit">💾 保存修改</button><div class="status">修改数量时将同步调整对应商品库存；仅修改本条收货记录，不影响其他收货记录。</div></div>';
+ content(h);document.getElementById('returnReceiptList').addEventListener('click',()=>showReceipts(date));refreshSubSelect(r.subCatId||'');
+ document.getElementById('saveReceiptEdit').addEventListener('click',()=>saveReceiptEdit(id));
+}
+function saveReceiptEdit(id){
+ const r=receipts.find(x=>String(x.id)===String(id));if(!r)return;
+ const val=k=>document.getElementById('editR_'+k).value.trim();
+ const date=val('date'),qty=Number(val('qty')),name=val('name'),code=val('code'),sku=val('sku');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(new Date(date+'T12:00:00').getTime())||new Date(date+'T12:00:00').toISOString().slice(0,10)!==date){alert('请选择有效日期');return}
+ if(!name){alert('请输入商品名称');return}
+ if(!Number.isSafeInteger(qty)||qty<=0){alert('收货数量必须是大于0的整数');return}
+ const oldQty=Number(r.qty)||0,delta=qty-oldQty;
+ // 仅在原条码/SKU仍对应唯一商品时调整库存，避免误改其他商品。
+ const original=items.find(i=>(r.code&&i.code===r.code)||(r.sku&&i.sku===r.sku));
+ const target=items.find(i=>(code&&i.code===code)||(sku&&i.sku===sku));
+ if(delta!==0&&(!original||target&&original.id!==target.id)){
+  if(!confirm('无法可靠确定对应的库存商品。继续保存将只修改收货记录，不自动调整库存。是否继续？'))return;
+ }else if(delta!==0&&original){
+  const old=Number(original.stockQty)||0;
+  if(old+delta<0){alert('修改后商品库存会变为负数，请先核对库存。');return}
+  original.stockQty=String(old+delta);original.stock=old+delta>0?'yes':'no';original.updated=new Date().toLocaleString();
+ }
+ for(const key of ['date','code','sku','name','brand','model','color'])r[key]=val(key);
+ r.qty=qty;r.mainCatId=document.getElementById('mainCatSel').value;r.subCatId=document.getElementById('subCatSel').value;r.modified=new Date().toISOString();
+ save();alert('收货记录已修改并保存');showReceipts(date);
+}
+function openClearReceipts(){
+ const pwd=prompt('请输入清除收货数据的密码：');if(pwd===null)return;
+ if(pwd!=='888'){alert('密码错误，未清除任何数据');return}
+ content('<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🗑 清除收货数据</h2><label>选择收货日期</label><input id="clearReceiptDate" type="date" value="'+todayLocal()+'" onchange="renderClearReceipts()"><div id="clearReceiptResult"></div></div>');renderClearReceipts();
+}
+function renderClearReceipts(){
+ const date=document.getElementById('clearReceiptDate')?.value,el=document.getElementById('clearReceiptResult');if(!el)return;
+ const rows=selectedReceipts(date);
+ if(!rows.length){el.innerHTML='<div class="empty">当天没有收货数据</div>';return}
+ el.innerHTML='<div class="stat" style="margin-top:14px"><span>当天收货记录</span><strong>'+rows.length+' 条</strong></div>'+rows.map(r=>'<div class="item"><b>'+esc(r.name)+'</b><div class="meta">'+esc(receiptCategory(r))+' · 数量 '+esc(r.qty)+'</div></div>').join('')+'<div class="status">只清除所选日期的收货记录，不删除商品资料，也不改变现有库存。</div><button class="danger" style="width:100%;margin-top:14px" onclick="clearReceiptsForDate()">🗑 确认清除当天收货数据</button>';
+}
+function clearReceiptsForDate(){
+ const date=document.getElementById('clearReceiptDate')?.value,rows=selectedReceipts(date);
+ if(!rows.length){alert('当天没有收货数据');renderClearReceipts();return}
+ if(!confirm('确定清除 '+date+' 的全部 '+rows.length+' 条收货记录吗？\n\n此操作无法撤销；不会改变商品库存。'))return;
+ receipts=receipts.filter(r=>r.date!==date);save();alert('已清除 '+date+' 的 '+rows.length+' 条收货记录');renderClearReceipts();
 }
 function exportReceiptPDF(){
  const date=document.getElementById('receiptDate')?.value,rows=selectedReceipts(date);
@@ -620,13 +672,16 @@ function exportReceiptPDF(){
  const groups=new Map();for(const r of rows){const k=receiptCategory(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
  let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
  for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
- body+='</tbody><tfoot><tr><td colspan="4">小类合计</td><td class="num">'+group.reduce((n,r)=>n+Number(r.qty||0),0)+'</td></tr></tfoot></table>'}
- const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:16mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:12px}h1{text-align:center;font-size:22px}h2{font-size:15px;margin-top:22px;break-after:avoid}p{text-align:center}table{border-collapse:collapse;width:100%;margin:8px 0 16px}th,td{border:1px solid #aaa;padding:7px;text-align:left;word-break:break-word}th{background:#eee}.num{text-align:right}tfoot{font-weight:bold}tr{break-inside:avoid}.total{font-size:16px;text-align:right;margin-top:20px}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<div class="total">总收货数量：'+rows.reduce((n,r)=>n+Number(r.qty||0),0)+'</div><script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
+ body+='</tbody></table>'}
+ const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:16mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:12px}h1{text-align:center;font-size:22px}h2{font-size:15px;margin-top:22px;break-after:avoid}p{text-align:center}table{border-collapse:collapse;width:100%;margin:8px 0 16px}th,td{border:1px solid #aaa;padding:7px;text-align:left;word-break:break-word}th{background:#eee}.num{text-align:right}tfoot{font-weight:bold}tr{break-inside:avoid}.total{font-size:16px;text-align:right;margin-top:20px}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
  const win=window.open('','_blank');if(!win){alert('浏览器阻止了弹出窗口，请允许弹窗后重试。');return}
  win.document.open();win.document.write(html);win.document.close();
 }
 
 window.fillReceiveBySku=fillReceiveBySku;
+window.openClearReceipts=openClearReceipts;
+window.renderClearReceipts=renderClearReceipts;
+window.clearReceiptsForDate=clearReceiptsForDate;
 window.startScanner=startScanner;
 window.manualBarcode=manualBarcode;
 window.openNewProduct=openNewProduct;
