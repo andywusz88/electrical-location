@@ -80,7 +80,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 <button onclick="openReceiving()">📥 收货</button>
 <button onclick="showReceipts()">🧾 导出收货收据</button>
 <button onclick="showAll()">📋 全部商品</button>
-<button onclick="exportProductsPDF()">📄 导出商品PDF</button>
+<button onclick="showProductPDFOptions()">📄 导出商品PDF</button>
 <button onclick="openDisplayCheck()">🛒 检查展柜</button>
 <button onclick="manageCategory()">🏷 商品种类</button>
 <button onclick="manageLocations()">📍 位置管理</button>
@@ -779,10 +779,35 @@ window.removeLocation=removeLocation;
 window.editLocation=editLocation;
 
 // 商品 PDF：仅使用商品主数据，不混入独立的收货记录。
+function showProductPDFOptions(){
+ stopScanner();
+ let html='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📄 导出商品 PDF</h2><p class="sub">不选择分类即导出全部商品；可按大类、小类筛选。</p><label>商品大类</label><select id="pdfMainCat" onchange="updateProductPDFSub()"><option value="">全部大类</option>';
+ for(const c of [...categories].sort((a,b)=>String(a.name).localeCompare(String(b.name),'zh-CN')))html+='<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>';
+ html+='</select><label>商品小类</label><select id="pdfSubCat" onchange="updateProductPDFCount()"><option value="">全部小类</option></select><div id="pdfProductCount" class="status"></div><button class="primary" style="width:100%;margin-top:15px" onclick="exportProductsPDF()">📄 导出 PDF（A4 横版）</button></div>';
+ content(html);updateProductPDFSub();
+}
+function updateProductPDFSub(){
+ const main=document.getElementById('pdfMainCat')?.value||'';
+ const sub=document.getElementById('pdfSubCat');if(!sub)return;
+ const previous=sub.value;
+ const obj=categories.find(c=>String(c.id)===main);
+ sub.innerHTML='<option value="">全部小类</option>';
+ if(obj)for(const x of [...(obj.subs||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name),'zh-CN'))){const opt=document.createElement('option');opt.value=x.id;opt.textContent=x.name;sub.appendChild(opt)}
+ if([...sub.options].some(o=>o.value===previous))sub.value=previous;
+ updateProductPDFCount();
+}
+function updateProductPDFCount(){
+ const main=document.getElementById('pdfMainCat')?.value||'';
+ const sub=document.getElementById('pdfSubCat')?.value||'';
+ const count=catalogItems().filter(x=>(!main||String(x.mainCatId||'')===main)&&(!sub||String(x.subCatId||'')===sub)).length;
+ const el=document.getElementById('pdfProductCount');if(el)el.textContent='符合条件的商品：'+count+' 件';
+}
 function exportProductsPDF(){
  stopScanner();
- const products=catalogItems();
- if(!products.length){alert('当前没有商品数据，无法导出商品 PDF。');return;}
+ const mainFilter=document.getElementById('pdfMainCat')?.value||'';
+ const subFilter=document.getElementById('pdfSubCat')?.value||'';
+ const products=catalogItems().filter(x=>(!mainFilter||String(x.mainCatId||'')===mainFilter)&&(!subFilter||String(x.subCatId||'')===subFilter));
+ if(!products.length){alert('所选分类没有商品数据，无法导出商品 PDF。');return;}
  const categoryInfo=x=>{
   const main=categories.find(c=>String(c.id)===String(x.mainCatId||''));
   const sub=main&&(main.subs||[]).find(c=>String(c.id)===String(x.subCatId||''));
@@ -809,6 +834,9 @@ function exportProductsPDF(){
  w.document.open();w.document.write(doc);w.document.close();
 }
 window.exportProductsPDF=exportProductsPDF;
+window.showProductPDFOptions=showProductPDFOptions;
+window.updateProductPDFSub=updateProductPDFSub;
+window.updateProductPDFCount=updateProductPDFCount;
 
 </script>
 </body>
