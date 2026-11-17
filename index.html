@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<title>📦 电器位置查询 V2.4｜新增收货与收据</title>
+<title>电器管理 V2.5｜SKU 管理与收货</title>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -65,16 +65,16 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 .scan-compact{padding:10px}.scan-compact .back{margin-bottom:6px}.scan-compact .status{margin-top:6px}</style>
 </head>
 <body>
-<header><h1>📦 电器位置查询</h1><div class="sub">V2.4｜新增收货与收据</div></header>
+<header><h1>电器管理</h1><div class="sub">V2.5｜SKU 管理与收货</div></header>
 <div class="container">
-<div class="home-map-wrap"><img src="map.png" alt="电器位置查询" class="home-map"></div>
+<div class="home-map-wrap"><img src="map.png" alt="电器管理" class="home-map"></div>
  <div id="home" class="card">
  <div class="grid">
 <button class="primary" onclick="startScanner()">📷 扫描商品</button>
 <button onclick="manualBarcode()">⌨️ 输入条码</button>
 <button type="button" onclick="openNewProduct()">➕ 新增商品</button>
 <button onclick="showSearch()">🔍 搜索商品</button>
-<button class="primary" onclick="openReceiving()">📥 收货</button>
+<button onclick="openReceiving()">📥 收货</button>
 <button onclick="showReceipts()">🧾 导出收货收据</button>
 <button onclick="showAll()">📋 全部商品</button>
 <button onclick="manageCategory()">🏷 商品种类</button>
@@ -149,7 +149,7 @@ function clearAllData(){
 function exportAllData(){
     try{
         const backup={
-            app:"电器位置查询",
+            app:"电器管理",
             version:"1.0",
             exportDate:new Date().toISOString(),
             items:items,
@@ -162,7 +162,7 @@ function exportAllData(){
         const a=document.createElement("a");
         const d=new Date();
         const pad=n=>String(n).padStart(2,"0");
-        const fileName="电器位置查询_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
+        const fileName="电器管理_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
         a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),1000);
         alert("数据导出成功！\n\n商品："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n\n文件："+fileName);
@@ -181,7 +181,7 @@ function importAllData(){
             try{
                 const data=JSON.parse(reader.result);
                 if(!data||typeof data!=="object"||!Array.isArray(data.items)||!Array.isArray(data.locations)||!Array.isArray(data.categories)){
-                    throw new Error("这不是有效的“电器位置查询”数据备份文件。");
+                    throw new Error("这不是有效的“电器管理”数据备份文件。");
                 }
                 const summary="准备导入：\n商品 " + data.items.length + " 条\n位置 " + data.locations.length + " 条\n分类 " + data.categories.length + " 个大类";
                 if(!confirm(summary+"\n\n导入后将替换当前设备中的全部资料。\n是否继续？"))return;
@@ -271,7 +271,7 @@ function form(x,code){
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
- let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>{formHtml+='<option value="'+esc(m.id)+'" '+(m.id===selMainId?"selected":"")+'>'+esc(m.name)+'</option>';});
  formHtml+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><label>区域</label><select id="area" onchange="updateShelfOptions()"><option value="">请选择区域</option>';
  [...new Set(locations.map(x=>x.area).filter(Boolean))].forEach(v=>{formHtml+='<option value="'+esc(v)+'" '+(v===a?"selected":"")+'>'+esc(v)+'</option>';});
@@ -335,6 +335,7 @@ function saveItem(id){
  let x={
     id:id||Date.now().toString(),
     code,
+    sku:document.getElementById("sku").value.trim(),
     name,
     brand:document.getElementById("brand").value.trim(),
     model:document.getElementById("model").value.trim(),
@@ -455,7 +456,7 @@ function doSearch(){
     }
     let a=items.filter(x=>{
         let catText=getCatText(x).toLowerCase();
-        return [x.name,x.brand,x.model,x.code,x.color,x.area,x.shelf,String(x.stockQty||""),catText].join(" ").toLowerCase().includes(q);
+        return [x.name,x.brand,x.model,x.code,x.sku,x.color,x.area,x.shelf,String(x.stockQty||""),catText].join(" ").toLowerCase().includes(q);
     });
     if(countEl)countEl.textContent="符合条件的商品：共 "+a.length+" 个";
     render(a,r);
@@ -540,7 +541,7 @@ function removeLocation(id){if(confirm("确定删除这个位置吗？")){locati
 function todayLocal(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 function openReceiving(){
  stopScanner();
- let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📥 收货</h2><label>收货日期 *</label><input type="date" id="receiveDate" value="'+todayLocal()+'"><label>条码 / QR Code</label><input id="receiveCode" placeholder="可输入条码" oninput="fillReceiveByCode()"><label>商品名称 *</label><input id="receiveName" placeholder="例如 Dyson V15"><label>品牌</label><input id="receiveBrand"><label>型号</label><input id="receiveModel"><label>颜色</label><input id="receiveColor"><label>收货数量 *</label><input id="receiveQty" type="number" min="1" step="1" inputmode="numeric" placeholder="例如 5"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>📥 收货</h2><label>收货日期 *</label><input type="date" id="receiveDate" value="'+todayLocal()+'"><label>条码 / QR Code</label><input id="receiveCode" placeholder="可输入条码" oninput="fillReceiveByCode()"><label>SKU码</label><input id="receiveSku" placeholder="请输入 SKU 码" oninput="fillReceiveBySku()"><label>商品名称 *</label><input id="receiveName" placeholder="例如 Dyson V15"><label>品牌</label><input id="receiveBrand"><label>型号</label><input id="receiveModel"><label>颜色</label><input id="receiveColor"><label>收货数量 *</label><input id="receiveQty" type="number" min="1" step="1" inputmode="numeric" placeholder="例如 5"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>h+='<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>');
  h+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><button class="primary" style="width:100%;margin-top:18px" onclick="saveReceiving()">💾 保存收货</button><div class="status">同条码已有商品将增加库存数量；新条码将建立商品资料（位置留空）。</div></div>';
  content(h);
@@ -548,26 +549,41 @@ function openReceiving(){
 function fillReceiveByCode(){
  const x=byCode(document.getElementById('receiveCode').value);
  if(!x)return;
- for(const [field,value] of [['receiveName',x.name],['receiveBrand',x.brand],['receiveModel',x.model],['receiveColor',x.color]])document.getElementById(field).value=value||'';
+ for(const [field,value] of [['receiveSku',x.sku],['receiveName',x.name],['receiveBrand',x.brand],['receiveModel',x.model],['receiveColor',x.color]])document.getElementById(field).value=value||'';
  document.getElementById('mainCatSel').value=x.mainCatId||'';
  refreshSubSelect(x.subCatId||'');
 }
+function fillReceiveBySku(){
+ const sku=document.getElementById('receiveSku').value.trim();
+ if(!sku)return;
+ const x=items.find(i=>String(i.sku||'').trim()===sku);
+ if(!x)return;
+ for(const [field,value] of [['receiveCode',x.code],['receiveName',x.name],['receiveBrand',x.brand],['receiveModel',x.model],['receiveColor',x.color]])document.getElementById(field).value=value||'';
+ document.getElementById('mainCatSel').value=x.mainCatId||'';refreshSubSelect(x.subCatId||'');
+}
 function saveReceiving(){
  const val=id=>document.getElementById(id).value.trim();
- const date=val('receiveDate'),code=val('receiveCode'),name=val('receiveName'),qty=Number(val('receiveQty'));
+ const date=val('receiveDate'),code=val('receiveCode'),sku=val('receiveSku'),name=val('receiveName'),qty=Number(val('receiveQty'));
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T12:00:00').toISOString().slice(0,10)!==date){alert('请选择有效收货日期');return}
  if(!name){alert('请输入商品名称');return}
  if(!Number.isSafeInteger(qty)||qty<=0){alert('收货数量必须为大于0的整数');return}
  const brand=val('receiveBrand'),model=val('receiveModel'),color=val('receiveColor'),mainCatId=val('mainCatSel'),subCatId=val('subCatSel');
  const id=Date.now().toString()+'_'+Math.random().toString(36).slice(2,8);
- const r={id,date,code,name,brand,model,color,qty,mainCatId,subCatId,created:new Date().toISOString()};
- const existing=code?byCode(code):null;
+ const r={id,date,code,sku,name,brand,model,color,qty,mainCatId,subCatId,created:new Date().toISOString()};
+ const bySku=sku?items.find(i=>String(i.sku||'').trim()===sku):null;
+ const byBarcode=code?byCode(code):null;
+ if(bySku&&byBarcode&&bySku.id!==byBarcode.id){alert('SKU码和条码对应不同商品，请检查后重试');return}
+ const existing=byBarcode||bySku;
+ if(existing&&sku&&existing.sku&&existing.sku!==sku){alert('此商品已使用其他SKU码，请检查');return}
+ if(existing&&code&&existing.code&&existing.code!==code){alert('此商品已使用其他条码，请检查');return}
  if(existing){
    const old=Number(existing.stockQty);
    existing.stockQty=String((Number.isFinite(old)&&old>0?old:0)+qty);
+   if(sku&&!existing.sku)existing.sku=sku;
+   if(code&&!existing.code)existing.code=code;
    existing.stock='yes';existing.updated=new Date().toLocaleString();
  }else{
-   items.push({id,code,name,brand,model,color,stock:'yes',stockQty:String(qty),mainCatId,subCatId,area:'',shelf:'',updated:new Date().toLocaleString()});
+   items.push({id,code,sku,name,brand,model,color,stock:'yes',stockQty:String(qty),mainCatId,subCatId,area:'',shelf:'',updated:new Date().toLocaleString()});
  }
  receipts.push(r);save();
  if(confirm('收货保存成功！\n是否继续登记下一件商品？'))openReceiving();else showReceipts(date);
@@ -593,7 +609,7 @@ function renderReceipts(){
   const cat=receiptCategory(r);
   if(cat!==last){if(last!==null)h+='<div class="meta" style="text-align:right">小类合计：<b>'+subtotal+'</b></div>';h+='<h3 style="font-size:16px;margin:18px 0 8px">'+esc(cat)+'</h3>';last=cat;subtotal=0}
   subtotal+=Number(r.qty||0);
-  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b></div></div>';
+  h+='<div class="item"><div class="item-title">'+esc(r.name)+'</div><div class="meta">'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' · ')+(r.code?'<br>条码：'+esc(r.code):'')+(r.sku?'<br>SKU码：'+esc(r.sku):'')+'<br>收货数量：<b>'+esc(r.qty)+'</b></div></div>';
  }
  h+='<div class="meta" style="text-align:right">小类合计：<b>'+subtotal+'</b></div><button class="primary" style="width:100%;margin-top:16px" onclick="exportReceiptPDF()">📄 导出 PDF</button>';
  el.innerHTML=h;
@@ -602,14 +618,15 @@ function exportReceiptPDF(){
  const date=document.getElementById('receiptDate')?.value,rows=selectedReceipts(date);
  if(!rows.length){alert('当天没有收货');return}
  const groups=new Map();for(const r of rows){const k=receiptCategory(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
- let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
- for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
- body+='</tbody><tfoot><tr><td colspan="3">小类合计</td><td class="num">'+group.reduce((n,r)=>n+Number(r.qty||0),0)+'</td></tr></tfoot></table>'}
+ let body='';for(const [cat,group] of groups){body+='<h2>'+esc(cat)+'</h2><table><thead><tr><th>商品名称</th><th>条码</th><th>SKU码</th><th>品牌 / 型号 / 颜色</th><th>数量</th></tr></thead><tbody>';
+ for(const r of group)body+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code||'-')+'</td><td>'+esc(r.sku||'-')+'</td><td>'+[r.brand,r.model,r.color].filter(Boolean).map(esc).join(' / ')+'</td><td class="num">'+esc(r.qty)+'</td></tr>';
+ body+='</tbody><tfoot><tr><td colspan="4">小类合计</td><td class="num">'+group.reduce((n,r)=>n+Number(r.qty||0),0)+'</td></tr></tfoot></table>'}
  const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>收货收据_'+esc(date)+'</title><style>@page{size:A4;margin:16mm}body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:12px}h1{text-align:center;font-size:22px}h2{font-size:15px;margin-top:22px;break-after:avoid}p{text-align:center}table{border-collapse:collapse;width:100%;margin:8px 0 16px}th,td{border:1px solid #aaa;padding:7px;text-align:left;word-break:break-word}th{background:#eee}.num{text-align:right}tfoot{font-weight:bold}tr{break-inside:avoid}.total{font-size:16px;text-align:right;margin-top:20px}@media print{button{display:none}}</style></head><body><h1>收货收据</h1><p>收货日期：'+esc(date)+'　｜　记录：'+rows.length+' 条</p>'+body+'<div class="total">总收货数量：'+rows.reduce((n,r)=>n+Number(r.qty||0),0)+'</div><script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
  const win=window.open('','_blank');if(!win){alert('浏览器阻止了弹出窗口，请允许弹窗后重试。');return}
  win.document.open();win.document.write(html);win.document.close();
 }
 
+window.fillReceiveBySku=fillReceiveBySku;
 window.startScanner=startScanner;
 window.manualBarcode=manualBarcode;
 window.openNewProduct=openNewProduct;
