@@ -64,6 +64,7 @@ label{display:block;font-size:14px;color:#555;margin:13px 0 6px}
 }
 .scan-compact{padding:10px}.scan-compact .back{margin-bottom:6px}.scan-compact .status{margin-top:6px}
 .display-row{border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin:9px 0;background:#fff}.display-top{display:flex;align-items:center;gap:10px}.display-index{background:#f1f2f4;border-radius:8px;padding:8px 10px;font-weight:700}.display-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.display-actions button{font-size:14px;padding:9px;min-height:42px}.display-row[draggable="true"]{cursor:grab}.display-row.dragging{opacity:.4}.display-progress{height:7px;background:#eee;border-radius:8px;overflow:hidden;margin:10px 0}.display-progress>div{height:100%;background:#333}.display-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.display-toolbar button{flex:1;min-width:120px}
+ .accessory-mark{display:inline-block;background:#e8f1ff;color:#164d91;border-radius:6px;padding:2px 7px;font-size:13px;font-weight:700;margin-left:3px}.accessory-edit{margin-top:8px;min-height:34px;padding:6px 10px;font-size:12px}
 </style>
 </head>
 <body>
@@ -289,7 +290,7 @@ function form(x,code){
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
- let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>配件标识</label><input id="accessoryMark" value="'+esc(x?.accessoryMark||"")+'" placeholder="例如 A12、B3（可留空）"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>{formHtml+='<option value="'+esc(m.id)+'" '+(m.id===selMainId?"selected":"")+'>'+esc(m.name)+'</option>';});
  formHtml+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><label>区域</label><select id="area" onchange="updateShelfOptions()"><option value="">请选择区域</option>';
  [...new Set(locations.map(x=>x.area).filter(Boolean))].forEach(v=>{formHtml+='<option value="'+esc(v)+'" '+(v===a?"selected":"")+'>'+esc(v)+'</option>';});
@@ -362,6 +363,7 @@ function saveItem(id){
     stock:document.getElementById("stock").value,
     stockQty:document.getElementById("stockQty").value.trim(),
     isDisplay:document.getElementById("isDisplay").checked,
+    accessoryMark:document.getElementById("accessoryMark").value.trim(),
     displayOrder:(id?items.find(q=>String(q.id)===String(id))?.displayOrder:undefined)??nextDisplayOrder(),
     mainCatId:mainCatId||"",
     subCatId:subCatId||"",
@@ -710,13 +712,22 @@ function renderDisplayCheck(){
  if(!products.length)h+='<div class="empty">没有展示商品，请先到“新增商品”或“编辑商品”勾选“是否展示”。</div>';
  products.forEach((p,i)=>{
   const id=String(p.id),r=session?.results[id]?.status;
-  h+='<div class="display-row" '+(displaySortMode?'draggable="true" ondragstart="displayDragStart(event,\''+esc(id)+'\')" ondragend="this.classList.remove(\'dragging\')" ondragover="event.preventDefault()" ondrop="displayDrop(event,\''+esc(id)+'\')"':'')+'><div class="display-top"><span class="display-index">'+(i+1)+'</span><div style="flex:1;min-width:0"><b>'+esc(p.name)+'</b><div class="meta">SKU：'+esc(p.sku||'-')+(p.code?' · 条码：'+esc(p.code):'')+'<br>📍 '+esc(loc(p))+'</div></div><span>'+(r==='yes'?'✅':r==='no'?'❌':'○')+'</span></div>';
+  h+='<div class="display-row" '+(displaySortMode?'draggable="true" ondragstart="displayDragStart(event,\''+esc(id)+'\')" ondragend="this.classList.remove(\'dragging\')" ondragover="event.preventDefault()" ondrop="displayDrop(event,\''+esc(id)+'\')"':'')+'><div class="display-top"><span class="display-index">'+(i+1)+'</span><div style="flex:1;min-width:0"><b>'+esc(p.name)+'</b> <span class="accessory-mark">'+(p.accessoryMark?esc(p.accessoryMark):'未设配件标识')+'</span><div class="meta">SKU：'+esc(p.sku||'-')+(p.code?' · 条码：'+esc(p.code):'')+'<br>📍 '+esc(loc(p))+'</div></div><span>'+(r==='yes'?'✅':r==='no'?'❌':'○')+'</span></div>';
+  if(!displaySortMode)h+='<button class="small accessory-edit" data-accessory-id="'+esc(id)+'" type="button">✏️ 修改配件标识</button>';
   if(displaySortMode)h+='<div class="display-actions"><button '+(i===0?'disabled':'')+' onclick="moveDisplayItem(\''+esc(id)+'\',-1)">↑ 上移</button><button '+(i===products.length-1?'disabled':'')+' onclick="moveDisplayItem(\''+esc(id)+'\',1)">↓ 下移</button></div>';
   else if(session)h+='<div class="display-actions"><button style="'+(r==='yes'?'background:#dff4e4;color:#176b34':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'yes\')">✓ 有货</button><button style="'+(r==='no'?'background:#ffe4e4;color:#a31616':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'no\')">✕ 缺货</button></div>';
   h+='</div>';
  });
  if(session&&!displaySortMode)h+='<button class="primary" style="width:100%;margin-top:14px" onclick="finishDisplayCheck()">✓ 结束本轮盘点</button>';
  h+='</div>';content(h);
+ document.querySelectorAll('[data-accessory-id]').forEach(el=>el.addEventListener('click',()=>editAccessoryMark(el.dataset.accessoryId)));
+}
+function editAccessoryMark(id){
+ const item=items.find(x=>String(x.id)===String(id));
+ if(!item){alert('找不到该商品');return;}
+ const value=prompt('修改「'+item.name+'」的配件标识（留空可清除）：',item.accessoryMark||'');
+ if(value===null)return;
+ item.accessoryMark=value.trim();item.updated=new Date().toLocaleString();save();renderDisplayCheck();
 }
 function openDisplayHistory(){
  let h='<div class="card"><button class="small back" onclick="openDisplayCheck()">← 返回检查展柜</button><h2>📋 展柜盘点历史</h2>';
