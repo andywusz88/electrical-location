@@ -166,7 +166,7 @@ function exportAllData(){
     try{
         const backup={
             app:"电器管理",
-            version:"3.4",
+            version:"3.8",
             backupType:"full-system",
             exportDate:new Date().toISOString(),
             items:items,
@@ -191,7 +191,7 @@ function exportAllData(){
         const fileName="电器管理_数据备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
         a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),1000);
-        alert("数据导出成功！\n\n商品主档："+catalogItems().length+" 条\n原始商品记录："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条\n展柜盘点："+displayData.sessions.length+" 次\n展示商品排序及配件标识：已包含\n完整本地数据快照：已包含\n\n文件："+fileName);
+        alert("数据导出成功！\n\n商品主档："+catalogItems().length+" 条\n原始商品记录："+items.length+" 条\n位置："+locations.length+" 条\n分类："+categories.length+" 个大类\n收货记录："+receipts.length+" 条\n展柜盘点："+displayData.sessions.length+" 次\n展柜排序（displayOrder）及配件标识：已包含\n完整本地数据快照：已包含\n\n文件："+fileName);
     }catch(e){console.error(e);alert("导出失败，请重试。\n"+e.message);}
 }
 
@@ -301,7 +301,7 @@ function form(x,code){
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
- let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>配件标识</label><input id="accessoryMark" value="'+esc(x?.accessoryMark||"")+'" placeholder="例如 A12、B3（可留空）"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>展柜排序</label><input id="displayOrder" type="number" min="1" step="1" inputmode="numeric" value="'+esc(x?.displayOrder??'')+'" placeholder="正整数；留空自动排在末尾"><label>配件标识</label><input id="accessoryMark" value="'+esc(x?.accessoryMark||"")+'" placeholder="例如 A12、B3（可留空）"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>{formHtml+='<option value="'+esc(m.id)+'" '+(m.id===selMainId?"selected":"")+'>'+esc(m.name)+'</option>';});
  formHtml+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><label>区域</label><select id="area" onchange="updateShelfOptions()"><option value="">请选择区域</option>';
  [...new Set(locations.map(x=>x.area).filter(Boolean))].forEach(v=>{formHtml+='<option value="'+esc(v)+'" '+(v===a?"selected":"")+'>'+esc(v)+'</option>';});
@@ -363,6 +363,9 @@ function saveItem(id){
  let mainCatId=document.getElementById("mainCatSel").value;
  let subCatId=document.getElementById("subCatSel").value;
 
+  const orderRaw=document.getElementById("displayOrder").value.trim();
+  if(orderRaw!==""&&(!Number.isSafeInteger(Number(orderRaw))||Number(orderRaw)<1)){alert("展柜排序必须是大于0的整数");return;}
+
  let x={
     id:id||Date.now().toString(),
     code,
@@ -375,7 +378,7 @@ function saveItem(id){
     stockQty:document.getElementById("stockQty").value.trim(),
     isDisplay:document.getElementById("isDisplay").checked,
     accessoryMark:document.getElementById("accessoryMark").value.trim(),
-    displayOrder:(id?items.find(q=>String(q.id)===String(id))?.displayOrder:undefined)??nextDisplayOrder(),
+    displayOrder:(()=>{const raw=document.getElementById("displayOrder").value.trim();return raw===""?nextDisplayOrder():Number(raw)})(),
     mainCatId:mainCatId||"",
     subCatId:subCatId||"",
     area:document.getElementById("area").value.trim(),
@@ -425,7 +428,7 @@ function showItem(id){
  const qtyText = x.stockQty ? esc(x.stockQty) : "未填写";
  const catTxt=getCatText(x);
  let itemHtml='<div class="card result-card"><button class="small back" onclick="showAll()">← 返回</button><div class="result-icon">📍</div><div class="result-found">找到商品</div><div class="result-name">'+esc(x.name)+'</div><div class="location-box"><div class="location-label">存放位置</div><div class="location-big">📍 '+esc(loc(x))+'</div></div><div style="margin:10px 0">库存状态：<b>'+(x.stock==="no"?"❌ 无库存":"✅ 有库存")+'</b></div><div style="margin:6px 0">库存数量：<b>'+qtyText+'</b></div><div style="margin:6px 0">商品种类：<b>'+catTxt+'</b></div>';
- itemHtml+='<div style="margin:6px 0">展示商品：<b>'+(x.isDisplay?"✅ 是":"否")+'</b></div>';
+ itemHtml+='<div style="margin:6px 0">展示商品：<b>'+(x.isDisplay?"✅ 是":"否")+'</b></div><div style="margin:6px 0">展柜排序：<b>'+esc(x.displayOrder??'未设置')+'</b></div>';
   if(x.color) itemHtml+='<div>🎨 颜色：<b>'+esc(x.color)+'</b></div>';
  itemHtml+='<div class="meta">';
  if(x.brand)itemHtml+='<div><b>品牌：</b>'+esc(x.brand)+'</div>';
@@ -509,7 +512,7 @@ function render(a,r){
         return '<div class="item product-row" role="button" tabindex="0" data-item-id="'+esc(x.id)+'" style="cursor:pointer">'+
           '<div class="item-title">'+esc(x.name||"未命名商品")+'</div>'+
           '<div class="meta">'+(x.brand?esc(x.brand):"")+(x.model?' · '+esc(x.model):"")+(x.color?' · '+esc(x.color):"")+
-          '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+(x.sku?'<br>SKU：'+esc(x.sku):'')+'<br>是否展示：'+(x.isDisplay?'✅ 是':'否')+' · 配件标识：'+esc(x.accessoryMark||'未设置')+          '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div>'+          '</div>';
+          '<br><span class="location">📍 '+esc(loc(x))+'</span>'+(x.code?'<br>🔢 '+esc(x.code):"")+(x.sku?'<br>SKU：'+esc(x.sku):'')+'<br>是否展示：'+(x.isDisplay?'✅ 是':'否')+'<br>展柜排序：'+esc(x.displayOrder??'未设置')+' · 配件标识：'+esc(x.accessoryMark||'未设置')+          '<br><span style="color:'+qtyColor+';font-weight:700">数量：</span><span style="color:#222">'+qtyText+'</span>'+          '<br><span class="update-time">🕒 最后修改：'+esc(x.updated||"无记录")+'</span></div>'+          '</div>';
     }).join("");
     r.querySelectorAll(".product-row").forEach(row=>{
         const open=()=>openEditById(row.getAttribute("data-item-id"));
@@ -926,13 +929,13 @@ function exportProductsPDF(){
  let rows='';
  for(const x of sorted){
   const cat=categoryInfo(x);
-  if(cat.main!==lastMain){rows+='<tr class="group-main"><td colspan="10">'+esc(cat.main)+'</td></tr>';lastMain=cat.main;lastSub='';}
-  if(cat.sub!==lastSub){rows+='<tr class="group-sub"><td colspan="10">'+esc(cat.sub)+'</td></tr>';lastSub=cat.sub;}
-  rows+='<tr><td>'+esc(x.name||'')+'</td><td>'+esc(x.brand||'')+'</td><td>'+esc(x.model||'')+'</td><td>'+esc(x.color||'')+'</td><td>'+esc(x.sku||'')+'</td><td>'+esc(x.code||'')+'</td><td>'+esc(x.stockQty??'')+'</td><td>'+esc(loc(x))+'</td><td>'+(x.isDisplay?'是':'否')+'</td><td>'+esc(x.accessoryMark||'')+'</td></tr>';
+  if(cat.main!==lastMain){rows+='<tr class="group-main"><td colspan="11">'+esc(cat.main)+'</td></tr>';lastMain=cat.main;lastSub='';}
+  if(cat.sub!==lastSub){rows+='<tr class="group-sub"><td colspan="11">'+esc(cat.sub)+'</td></tr>';lastSub=cat.sub;}
+  rows+='<tr><td>'+esc(x.name||'')+'</td><td>'+esc(x.brand||'')+'</td><td>'+esc(x.model||'')+'</td><td>'+esc(x.color||'')+'</td><td>'+esc(x.sku||'')+'</td><td>'+esc(x.code||'')+'</td><td>'+esc(x.stockQty??'')+'</td><td>'+esc(loc(x))+'</td><td>'+(x.isDisplay?'是':'否')+'</td><td>'+esc(x.displayOrder??'')+'</td><td>'+esc(x.accessoryMark||'')+'</td></tr>';
  }
  const doc='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>商品清单</title><style>'+ 
- '@page{size:A4 landscape;margin:7mm 8mm}*{box-sizing:border-box}body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#222;font-size:8px;line-height:1.12;margin:0}h1{font-size:15px;text-align:center;margin:0 0 3px}p{text-align:center;margin:0 0 5px;font-size:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #aaa;padding:2px 3px;word-break:break-word;vertical-align:top}th{background:#e9e9e9;font-weight:bold}th:nth-child(1){width:17%}th:nth-child(2){width:8%}th:nth-child(3){width:9%}th:nth-child(4){width:7%}th:nth-child(5){width:12%}th:nth-child(6){width:13%}th:nth-child(7){width:5%}th:nth-child(8){width:16%}th:nth-child(9){width:5%}th:nth-child(10){width:8%}.group-main td{background:#dedede;font-weight:bold;font-size:9px;padding:3px 4px}.group-sub td{background:#f2f2f2;font-weight:bold;padding:2px 4px}tr{break-inside:avoid}thead{display:table-header-group}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'+
- '</style></head><body><h1>电器管理 · 商品清单</h1><p>导出时间：'+esc(new Date().toLocaleString())+'</p><table><thead><tr><th>商品名称</th><th>品牌</th><th>型号</th><th>颜色</th><th>SKU</th><th>条码 / QR</th><th>库存</th><th>存放位置</th><th>展示</th><th>配件标识</th></tr></thead><tbody>'+rows+'</tbody></table><script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
+ '@page{size:A4 landscape;margin:7mm 8mm}*{box-sizing:border-box}body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#222;font-size:8px;line-height:1.12;margin:0}h1{font-size:15px;text-align:center;margin:0 0 3px}p{text-align:center;margin:0 0 5px;font-size:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #aaa;padding:2px 3px;word-break:break-word;vertical-align:top}th{background:#e9e9e9;font-weight:bold}th:nth-child(1){width:16%}th:nth-child(2){width:8%}th:nth-child(3){width:9%}th:nth-child(4){width:7%}th:nth-child(5){width:11%}th:nth-child(6){width:12%}th:nth-child(7){width:5%}th:nth-child(8){width:14%}th:nth-child(9){width:5%}th:nth-child(10){width:5%}th:nth-child(11){width:8%}.group-main td{background:#dedede;font-weight:bold;font-size:9px;padding:3px 4px}.group-sub td{background:#f2f2f2;font-weight:bold;padding:2px 4px}tr{break-inside:avoid}thead{display:table-header-group}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'+
+ '</style></head><body><h1>电器管理 · 商品清单</h1><p>导出时间：'+esc(new Date().toLocaleString())+'</p><table><thead><tr><th>商品名称</th><th>品牌</th><th>型号</th><th>颜色</th><th>SKU</th><th>条码 / QR</th><th>库存</th><th>存放位置</th><th>展示</th><th>展柜排序</th><th>配件标识</th></tr></thead><tbody>'+rows+'</tbody></table><script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body></html>';
  const w=window.open('','_blank');
  if(!w){alert('浏览器阻止了打印窗口。请允许弹出窗口后重试。');return;}
  w.document.open();w.document.write(doc);w.document.close();
