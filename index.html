@@ -301,7 +301,7 @@ function form(x,code){
  let selMainId=x?.mainCatId||"";
  let selSubId=x?.subCatId||"";
 
- let formHtml='<div class="card"><button class="small back" onclick="'+(e?'showItem(\''+esc(x.id)+'\')':'back()')+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>展柜排序</label><input id="displayOrder" type="number" min="1" step="1" inputmode="numeric" value="'+esc(x?.displayOrder??'')+'" placeholder="正整数；留空自动排在末尾"><label>配件标识</label><input id="accessoryMark" value="'+esc(x?.accessoryMark||"")+'" placeholder="例如 A12、B3（可留空）"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
+ let formHtml='<div class="card"><button class="small back" onclick="'+(e&&displaySortEditingId?'returnToDisplaySort()':(e?'showItem(\''+esc(x.id)+'\')':'back()'))+'">← 返回</button><h2>'+(e?"编辑商品":"新增商品")+'</h2><label>条码 / QR Code</label><input id="code" value="'+esc(x?.code||code)+'" placeholder="可扫码或手动输入"><label>SKU码</label><input id="sku" value="'+esc(x?.sku||"")+'" placeholder="请输入 SKU 码"><label>商品名称 *</label><input id="name" value="'+esc(x?.name||"")+'" placeholder="例如 Dyson V15"><label>品牌</label><input id="brand" value="'+esc(x?.brand||"")+'" placeholder="例如 Dyson"><label>型号</label><input id="model" value="'+esc(x?.model||"")+'" placeholder="例如 V15"><label>颜色</label><input id="color" value="'+esc(x?.color||"")+'" placeholder="例如 Gold / Black / White"><label>库存状态</label><select id="stock"><option value="yes" '+(x?.stock!=="no"?"selected":"")+'>✅ 有库存</option><option value="no" '+(x?.stock==="no"?"selected":"")+'>❌ 无库存</option></select><label>库存数量</label><input id="stockQty" value="'+esc(x?.stockQty??"")+'" placeholder="填写数字，例如 5，可不填"><label style="display:flex;align-items:center;gap:10px;margin-top:16px"><input type="checkbox" id="isDisplay" style="width:20px;height:20px" "+(x?.isDisplay?"checked":"")+"> 是否展示（加入展柜检查清单）</label><label>展柜排序</label><input id="displayOrder" type="number" min="1" step="1" inputmode="numeric" value="'+esc(x?.displayOrder??'')+'" placeholder="正整数；留空自动排在末尾"><label>配件标识</label><input id="accessoryMark" value="'+esc(x?.accessoryMark||"")+'" placeholder="例如 A12、B3（可留空）"><label>商品大类</label><select id="mainCatSel" onchange="refreshSubSelect()"><option value="">不选择大类</option>';
  categories.forEach(m=>{formHtml+='<option value="'+esc(m.id)+'" '+(m.id===selMainId?"selected":"")+'>'+esc(m.name)+'</option>';});
  formHtml+='</select><label>商品小类</label><select id="subCatSel"><option value="">先选择大类</option></select><label>区域</label><select id="area" onchange="updateShelfOptions()"><option value="">请选择区域</option>';
  [...new Set(locations.map(x=>x.area).filter(Boolean))].forEach(v=>{formHtml+='<option value="'+esc(v)+'" '+(v===a?"selected":"")+'>'+esc(v)+'</option>';});
@@ -392,7 +392,17 @@ function saveItem(id){
     items.push(x);
  }
  save();
- showItem(x.id);
+ if(displaySortEditingId&&String(displaySortEditingId)===String(x.id)){
+   // 保留未提交的排序草稿；取消展示时从草稿中移除。
+   if(displaySortDraft){
+     const key=String(x.id),idx=displaySortDraft.indexOf(key);
+     if(!x.isDisplay&&idx>=0)displaySortDraft.splice(idx,1);
+     else if(x.isDisplay&&idx<0)displaySortDraft.push(key);
+   }
+   displaySortEditingId=null;
+   renderDisplaySort();
+   alert('商品资料已保存，排序草稿仍保留；如有排序调整，请再点击“保存排序”。');
+ }else showItem(x.id);
 }
 function del(id){
     let x=items.find(q=>q.id===id);
@@ -712,13 +722,20 @@ function createDisplaySession(){
 function setDisplayCheck(id,status){const session=activeDisplaySession();if(!session||session.finishedAt)return;session.results[id]={status,time:new Date().toISOString()};save();renderDisplayCheck()}
 function finishDisplayCheck(){const session=activeDisplaySession();if(!session)return;const count=displayProducts().filter(x=>!session.results[String(x.id)]).length;if(count&&!confirm('还有 '+count+' 件展示商品未检查。仍然结束本次盘点吗？'))return;session.finishedAt=new Date().toISOString();displayData.activeId=null;save();renderDisplayCheck()}
 // 排序草稿只保存在内存；点击保存后才更新商品主档。
-let displaySortMode=false,displaySortDraft=null,displaySortQuery='',displaySortMain='',displaySortSub='';
+let displaySortMode=false,displaySortDraft=null,displaySortQuery='',displaySortMain='',displaySortSub='',displaySortEditingId=null;
+function editProductFromDisplaySort(id){
+ const item=items.find(x=>String(x.id)===String(id));
+ if(!item){alert('商品不存在');return}
+ displaySortEditingId=String(id);
+ form(item);
+}
+function returnToDisplaySort(){displaySortEditingId=null;renderDisplaySort()}
 function sortedDraftProducts(){
  const byId=new Map(displayProducts().map(x=>[String(x.id),x]));
  return (displaySortDraft||[]).map(id=>byId.get(String(id))).filter(Boolean);
 }
 function startDisplaySort(){displaySortDraft=displayProducts().map(x=>String(x.id));displaySortQuery='';displaySortMain='';displaySortSub='';displaySortMode=true;renderDisplayCheck()}
-function cancelDisplaySort(){displaySortMode=false;displaySortDraft=null;displaySortQuery='';displaySortMain='';displaySortSub='';renderDisplayCheck()}
+function cancelDisplaySort(){displaySortEditingId=null;displaySortMode=false;displaySortDraft=null;displaySortQuery='';displaySortMain='';displaySortSub='';renderDisplayCheck()}
 function saveDisplaySort(){
  if(!displaySortDraft)return;
  const products=displayProducts();const valid=new Set(products.map(x=>String(x.id)));
@@ -774,12 +791,13 @@ function renderDisplaySortRows(){
   row.addEventListener('drop',e=>displaySortDrop(e,id));
   const input=row.querySelector('.sort-target');
   row.querySelector('.sort-go').addEventListener('click',()=>moveDisplayTo(id,input.value));
+  row.querySelector('.sort-edit-product').addEventListener('click',()=>editProductFromDisplaySort(id));
   input.addEventListener('keydown',e=>{if(e.key==='Enter')moveDisplayTo(id,input.value)});
  });
 }
 function renderDisplaySort(){
  const m=categories.find(x=>String(x.id)===displaySortMain);
- let h='<div class="card"><button class="small back" onclick="confirmLeaveDisplaySort()">← 返回检查展柜</button><h2>↕ 调整展柜排序</h2><div class="status">搜索和分类仅用于定位商品。输入的目标序号始终是全部展示商品中的位置。拖拽适用于电脑，手机建议使用序号移动。</div>';
+ let h='<div class="card"><button class="small back" onclick="confirmLeaveDisplaySort()">← 返回检查展柜</button><h2>↕ 调整展柜排序</h2><div class="status">商品资料可直接修改并保存，未提交的排序草稿会保留。搜索和分类仅用于定位商品。输入的目标序号始终是全部展示商品中的位置。拖拽适用于电脑，手机建议使用序号移动。</div>';
  h+='<label>搜索商品</label><input id="displaySortSearch" placeholder="名称 / SKU / 条码 / 配件标识 / 位置" value="'+esc(displaySortQuery)+'" oninput="updateDisplaySortFilter()">';
  h+='<div class="grid"><div><label>商品大类</label><select id="displaySortMain" onchange="updateDisplaySortMain()"><option value="">全部大类</option>'+categories.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===displaySortMain?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div><div><label>商品小类</label><select id="displaySortSub" onchange="updateDisplaySortFilter()"><option value="">全部小类</option>'+(m?.subs||[]).map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===displaySortSub?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div></div>';
  h+='<div id="displaySortCount" class="status"></div><div id="displaySortRows"></div><div class="grid" style="position:sticky;bottom:0;background:white;padding:12px 0;z-index:5"><button class="primary" onclick="saveDisplaySort()">💾 保存排序</button><button onclick="cancelDisplaySort()">取消修改</button></div></div>';
