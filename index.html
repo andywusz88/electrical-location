@@ -708,30 +708,100 @@ function createDisplaySession(){
 }
 function setDisplayCheck(id,status){const session=activeDisplaySession();if(!session||session.finishedAt)return;session.results[id]={status,time:new Date().toISOString()};save();renderDisplayCheck()}
 function finishDisplayCheck(){const session=activeDisplaySession();if(!session)return;const count=displayProducts().filter(x=>!session.results[String(x.id)]).length;if(count&&!confirm('还有 '+count+' 件展示商品未检查。仍然结束本次盘点吗？'))return;session.finishedAt=new Date().toISOString();displayData.activeId=null;save();renderDisplayCheck()}
-function moveDisplayItem(id,delta){const a=displayProducts(),i=a.findIndex(x=>String(x.id)===String(id)),j=i+delta;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];a.forEach((x,k)=>x.displayOrder=k+1);save();renderDisplayCheck()}
-let displaySortMode=false;
-function toggleDisplaySort(){displaySortMode=!displaySortMode;renderDisplayCheck()}
-function displayDragStart(ev,id){ev.dataTransfer.setData('text/plain',id);ev.dataTransfer.effectAllowed='move';ev.currentTarget.classList.add('dragging')}
-function displayDrop(ev,targetId){ev.preventDefault();const id=ev.dataTransfer.getData('text/plain');const a=displayProducts(),from=a.findIndex(x=>String(x.id)===String(id)),to=a.findIndex(x=>String(x.id)===String(targetId));if(from<0||to<0)return;const [m]=a.splice(from,1);a.splice(to,0,m);a.forEach((x,k)=>x.displayOrder=k+1);save();renderDisplayCheck()}
-function openDisplayCheck(){stopScanner();renderDisplayCheck()}
+// 排序草稿只保存在内存；点击保存后才更新商品主档。
+let displaySortMode=false,displaySortDraft=null,displaySortQuery='',displaySortMain='',displaySortSub='';
+function sortedDraftProducts(){
+ const byId=new Map(displayProducts().map(x=>[String(x.id),x]));
+ return (displaySortDraft||[]).map(id=>byId.get(String(id))).filter(Boolean);
+}
+function startDisplaySort(){displaySortDraft=displayProducts().map(x=>String(x.id));displaySortQuery='';displaySortMain='';displaySortSub='';displaySortMode=true;renderDisplayCheck()}
+function cancelDisplaySort(){displaySortMode=false;displaySortDraft=null;displaySortQuery='';displaySortMain='';displaySortSub='';renderDisplayCheck()}
+function saveDisplaySort(){
+ if(!displaySortDraft)return;
+ const products=displayProducts();const valid=new Set(products.map(x=>String(x.id)));
+ const order=[...new Set(displaySortDraft.filter(id=>valid.has(String(id))))];
+ products.forEach(x=>{if(!order.includes(String(x.id)))order.push(String(x.id))});
+ order.forEach((id,i)=>{const p=items.find(x=>String(x.id)===String(id));if(p)p.displayOrder=i+1});
+ save();cancelDisplaySort();alert('展柜排序已保存');
+}
+function displaySortFiltered(){
+ const q=displaySortQuery.trim().toLowerCase();
+ return sortedDraftProducts().filter(p=>(!displaySortMain||String(p.mainCatId)===displaySortMain)&&(!displaySortSub||String(p.subCatId)===displaySortSub)&&(!q||[p.name,p.sku,p.code,p.accessoryMark,p.brand,p.model,loc(p)].join(' ').toLowerCase().includes(q)));
+}
+function updateDisplaySortFilter(){
+ displaySortQuery=document.getElementById('displaySortSearch')?.value||'';
+ displaySortMain=document.getElementById('displaySortMain')?.value||'';
+ displaySortSub=document.getElementById('displaySortSub')?.value||'';
+ renderDisplaySortRows();
+}
+function updateDisplaySortMain(){
+ displaySortMain=document.getElementById('displaySortMain')?.value||'';displaySortSub='';
+ const el=document.getElementById('displaySortSub');
+ if(el){const m=categories.find(x=>String(x.id)===displaySortMain);el.innerHTML='<option value="">全部小类</option>'+(m?.subs||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')}
+ renderDisplaySortRows();
+}
+function moveDisplayTo(id,position){
+ if(!displaySortDraft)return;
+ const n=Number(position);
+ if(!Number.isInteger(n)||n<1||n>displaySortDraft.length){alert('请输入 1 至 '+displaySortDraft.length+' 的整数序号');return}
+ const from=displaySortDraft.indexOf(String(id));if(from<0)return;
+ displaySortDraft.splice(from,1);displaySortDraft.splice(n-1,0,String(id));renderDisplaySortRows();
+}
+function displaySortDragStart(ev,id){ev.dataTransfer.setData('text/plain',String(id));ev.dataTransfer.effectAllowed='move';ev.currentTarget.classList.add('dragging')}
+function displaySortDrop(ev,targetId){
+ ev.preventDefault();const id=ev.dataTransfer.getData('text/plain');if(!displaySortDraft)return;
+ const from=displaySortDraft.indexOf(String(id)),to=displaySortDraft.indexOf(String(targetId));if(from<0||to<0)return;
+ displaySortDraft.splice(from,1);displaySortDraft.splice(to,0,id);renderDisplaySortRows();
+}
+function renderDisplaySortRows(){
+ const el=document.getElementById('displaySortRows');if(!el)return;
+ const filtered=displaySortFiltered();
+ const pos=new Map(displaySortDraft.map((id,i)=>[String(id),i+1]));
+ document.getElementById('displaySortCount').textContent='显示 '+filtered.length+' / '+displaySortDraft.length+' 件 · 序号为全部展示商品的实际位置';
+ if(!filtered.length){el.innerHTML='<div class="empty">没有符合条件的展示商品</div>';return}
+ el.innerHTML=filtered.map(p=>{
+ const id=String(p.id),n=pos.get(id);
+ return '<div class="display-row" draggable="true" data-sort-id="'+esc(id)+'"><div class="display-top"><span style="font-size:22px;color:#999;cursor:grab;touch-action:none" aria-hidden="true">⠿</span><span class="display-index">'+n+'</span><div style="flex:1;min-width:0"><b>'+esc(p.name)+'</b> <span class="accessory-mark">'+esc(p.accessoryMark||'未设配件标识')+'</span><div class="meta">SKU：'+esc(p.sku||'-')+(p.code?' · 条码：'+esc(p.code):'')+'<br>📍 '+esc(loc(p))+'</div></div></div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><label style="margin:0;white-space:nowrap" for="sortTo_'+esc(id)+'">移至序号</label><input id="sortTo_'+esc(id)+'" class="sort-target" type="number" min="1" max="'+displaySortDraft.length+'" value="'+n+'" inputmode="numeric" style="width:90px;padding:9px"><button class="small sort-go" type="button" style="min-height:40px">移动</button></div></div>';
+ }).join('');
+ el.querySelectorAll('[data-sort-id]').forEach(row=>{
+  const id=row.dataset.sortId;
+  row.addEventListener('dragstart',e=>displaySortDragStart(e,id));
+  row.addEventListener('dragend',()=>row.classList.remove('dragging'));
+  row.addEventListener('dragover',e=>e.preventDefault());
+  row.addEventListener('drop',e=>displaySortDrop(e,id));
+  const input=row.querySelector('.sort-target');
+  row.querySelector('.sort-go').addEventListener('click',()=>moveDisplayTo(id,input.value));
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')moveDisplayTo(id,input.value)});
+ });
+}
+function renderDisplaySort(){
+ const m=categories.find(x=>String(x.id)===displaySortMain);
+ let h='<div class="card"><button class="small back" onclick="confirmLeaveDisplaySort()">← 返回检查展柜</button><h2>↕ 调整展柜排序</h2><div class="status">搜索和分类仅用于定位商品。输入的目标序号始终是全部展示商品中的位置。拖拽适用于电脑，手机建议使用序号移动。</div>';
+ h+='<label>搜索商品</label><input id="displaySortSearch" placeholder="名称 / SKU / 条码 / 配件标识 / 位置" value="'+esc(displaySortQuery)+'" oninput="updateDisplaySortFilter()">';
+ h+='<div class="grid"><div><label>商品大类</label><select id="displaySortMain" onchange="updateDisplaySortMain()"><option value="">全部大类</option>'+categories.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===displaySortMain?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div><div><label>商品小类</label><select id="displaySortSub" onchange="updateDisplaySortFilter()"><option value="">全部小类</option>'+(m?.subs||[]).map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===displaySortSub?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div></div>';
+ h+='<div id="displaySortCount" class="status"></div><div id="displaySortRows"></div><div class="grid" style="position:sticky;bottom:0;background:white;padding:12px 0;z-index:5"><button class="primary" onclick="saveDisplaySort()">💾 保存排序</button><button onclick="cancelDisplaySort()">取消修改</button></div></div>';
+ content(h);renderDisplaySortRows();
+}
+function confirmLeaveDisplaySort(){if(confirm('尚未保存的排序修改将丢失，确定返回吗？'))cancelDisplaySort()}
+function openDisplayCheck(){stopScanner();if(displaySortMode&&displaySortDraft){renderDisplaySort();return}renderDisplayCheck()}
 function renderDisplayCheck(){
+ if(displaySortMode&&displaySortDraft){renderDisplaySort();return}
  const products=displayProducts(),session=activeDisplaySession();
  const checked=products.filter(x=>session?.results[String(x.id)]).length,missing=products.filter(x=>session?.results[String(x.id)]?.status==='no').length;
  let h='<div class="card"><button class="small back" onclick="back()">← 返回</button><h2>🛒 检查展柜</h2><div class="status">只显示已勾选“是否展示”的商品。排序可调整，检查记录独立保存，不修改商品库存。</div>';
- h+='<div class="display-toolbar"><button onclick="toggleDisplaySort()">'+(displaySortMode?'✓ 完成排序':'↕ 调整排序')+'</button><button onclick="openDisplayHistory()">📋 盘点历史</button></div>';
+ h+='<div class="display-toolbar"><button onclick="startDisplaySort()">↕ 调整排序</button><button onclick="openDisplayHistory()">📋 盘点历史</button></div>';
  if(session)h+='<div class="stat"><span>本轮已检查 '+checked+'/'+products.length+'</span><strong style="color:#c62828">缺货 '+missing+'</strong></div><div class="display-progress"><div style="width:'+(products.length?100*checked/products.length:0)+'%"></div></div><div class="status">开始时间：'+esc(new Date(session.startedAt).toLocaleString())+'</div>';
  else h+='<div class="status">当前没有进行中的盘点，点击“开始新一轮盘点”。</div>';
  h+='<button class="primary" style="width:100%;margin:12px 0" onclick="createDisplaySession()">➕ 开始新一轮盘点</button>';
  if(!products.length)h+='<div class="empty">没有展示商品，请先到“新增商品”或“编辑商品”勾选“是否展示”。</div>';
  products.forEach((p,i)=>{
   const id=String(p.id),r=session?.results[id]?.status;
-  h+='<div class="display-row" '+(displaySortMode?'draggable="true" ondragstart="displayDragStart(event,\''+esc(id)+'\')" ondragend="this.classList.remove(\'dragging\')" ondragover="event.preventDefault()" ondrop="displayDrop(event,\''+esc(id)+'\')"':'')+'><div class="display-top"><span class="display-index">'+(i+1)+'</span><div style="flex:1;min-width:0"><b>'+esc(p.name)+'</b> <span class="accessory-mark">'+(p.accessoryMark?esc(p.accessoryMark):'未设配件标识')+'</span><div class="meta">SKU：'+esc(p.sku||'-')+(p.code?' · 条码：'+esc(p.code):'')+'<br>📍 '+esc(loc(p))+'</div></div><span>'+(r==='yes'?'✅':r==='no'?'❌':'○')+'</span></div>';
-  if(!displaySortMode)h+='<button class="small accessory-edit" data-accessory-id="'+esc(id)+'" type="button">✏️ 修改配件标识</button>';
-  if(displaySortMode)h+='<div class="display-actions"><button '+(i===0?'disabled':'')+' onclick="moveDisplayItem(\''+esc(id)+'\',-1)">↑ 上移</button><button '+(i===products.length-1?'disabled':'')+' onclick="moveDisplayItem(\''+esc(id)+'\',1)">↓ 下移</button></div>';
-  else if(session)h+='<div class="display-actions"><button style="'+(r==='yes'?'background:#dff4e4;color:#176b34':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'yes\')">✓ 有货</button><button style="'+(r==='no'?'background:#ffe4e4;color:#a31616':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'no\')">✕ 缺货</button></div>';
+  h+='<div class="display-row"><div class="display-top"><span class="display-index">'+(i+1)+'</span><div style="flex:1;min-width:0"><b>'+esc(p.name)+'</b> <span class="accessory-mark">'+(p.accessoryMark?esc(p.accessoryMark):'未设配件标识')+'</span><div class="meta">SKU：'+esc(p.sku||'-')+(p.code?' · 条码：'+esc(p.code):'')+'<br>📍 '+esc(loc(p))+'</div></div><span>'+(r==='yes'?'✅':r==='no'?'❌':'○')+'</span></div>';
+  h+='<button class="small accessory-edit" data-accessory-id="'+esc(id)+'" type="button">✏️ 修改配件标识</button>';
+  if(session)h+='<div class="display-actions"><button style="'+(r==='yes'?'background:#dff4e4;color:#176b34':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'yes\')">✓ 有货</button><button style="'+(r==='no'?'background:#ffe4e4;color:#a31616':'')+'" onclick="setDisplayCheck(\''+esc(id)+'\',\'no\')">✕ 缺货</button></div>';
   h+='</div>';
  });
- if(session&&!displaySortMode)h+='<button class="primary" style="width:100%;margin-top:14px" onclick="finishDisplayCheck()">✓ 结束本轮盘点</button>';
+ if(session)h+='<button class="primary" style="width:100%;margin-top:14px" onclick="finishDisplayCheck()">✓ 结束本轮盘点</button>';
  h+='</div>';content(h);
  document.querySelectorAll('[data-accessory-id]').forEach(el=>el.addEventListener('click',()=>editAccessoryMark(el.dataset.accessoryId)));
 }
